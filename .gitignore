@@ -1,0 +1,62 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage directory
+coverage
+*.lcov
+.nyc_output
+
+# Dependency directories
+node_modules/
+bower_components/
+
+# Build and output directories
+build/
+dist/
+out/
+.next/
+.nuxt/
+.vuepress/dist/
+
+# Env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Caches
+.cache/
+.parcel-cache/
+.eslintcache
+.npm
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Editor directories and files
+.idea
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Scratch, test files, and raw data
+temp_status.txt
+.playwright-cli/
+client/test-results/
+/*.png
+/*.mjs
+exercise_ids_raw.jsonl
+query

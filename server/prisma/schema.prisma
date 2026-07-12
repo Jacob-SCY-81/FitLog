@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String          @id @default(cuid())
+  email           String          @unique
+  nickname        String?         @db.VarChar(50)
+  avatarUrl       String?         @db.VarChar(255)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  workouts        WorkoutRecord[]
+  customExercises Exercise[]      @relation("CustomExercises")
+  refreshTokens   RefreshToken[]
+  favorites       FavoriteExercise[]
+  templates       WorkoutTemplate[]
+  measurements    BodyMeasurement[]
+}
+
+model RefreshToken {
+  id          String    @id @default(cuid())
+  token       String    @unique @db.VarChar(512)
+  userId      String
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Exercise {
+  id            String        @id @default(cuid())
+  name          String        @db.VarChar(100)
+  targetMuscle  String        @db.VarChar(50)
+  equipment     String?       @db.VarChar(50)
+  mediaUrl      String?       @db.VarChar(255)
+  isOfficial    Boolean       @default(false)
+  createdById   String?
+  notes         String?       @db.VarChar(500)
+  deletedAt     DateTime?
+  createdAt     DateTime      @default(now())
+  creator       User?         @relation("CustomExercises", fields: [createdById], references: [id])
+  exerciseSets  ExerciseSet[]
+  favorites     FavoriteExercise[]
+  templateExercises WorkoutTemplateExercise[]
+
+  @@index([createdById])
+  @@index([targetMuscle])
+}
+
+model WorkoutRecord {
+  id             String        @id @default(cuid())
+  userId         String
+  startTime      DateTime
+  endTime        DateTime?
+  notes          String?       @db.Text
+  totalVolumeKg  Float         @default(0)
+  createdAt      DateTime      @default(now())
+  user           User          @relation(fields: [userId], references: [id])
+  exerciseSets   ExerciseSet[]
+
+  @@index([userId, startTime])
+}
+
+model ExerciseSet {
+  id                String        @id @default(cuid())
+  workoutRecordId   String
+  exerciseId        String
+  sortOrder         Int
+  setIndex          Int
+  setType           String        @db.VarChar(20)
+  weight            Float
+  reps              Int
+  rpe               Float?
+  completedAt       DateTime?
+  actualRestTimeSec Int           @default(0)
+  isCompleted       Boolean       @default(false)
+  workout           WorkoutRecord @relation(fields: [workoutRecordId], references: [id], onDelete: Cascade)
+  exercise          Exercise      @relation(fields: [exerciseId], references: [id])
+
+  @@index([exerciseId, completedAt])
+  @@index([workoutRecordId])
+  @@index([exerciseId, workoutRecordId])
+}
+
+model FavoriteExercise {
+  id         String   @id @default(cuid())
+  userId     String
+  exerciseId String
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+  exercise   Exercise @relation(fields: [exerciseId], references: [id])
+
+  @@unique([userId, exerciseId])
+  @@index([userId])
+}
+
+model WorkoutTemplate {
+  id          String                   @id @default(cuid())
+  userId      String
+  name        String                   @db.VarChar(100)
+  notes       String?                  @db.Text
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+  user        User                     @relation(fields: [userId], references: [id])
+  exercises   WorkoutTemplateExercise[]
+
+  @@index([userId])
+}
+
+model WorkoutTemplateExercise {
+  id           String          @id @default(cuid())
+  templateId   String
+  exerciseId   String
+  sortOrder    Int
+  targetSets   Int             @default(3)
+  targetReps   Int             @default(10)
+  targetWeight Float           @default(0)
+  notes        String?         @db.VarChar(200)
+  template     WorkoutTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  exercise     Exercise        @relation(fields: [exerciseId], references: [id])
+
+  @@index([templateId])
+}
+
+model BodyMeasurement {
+  id          String   @id @default(cuid())
+  userId      String
+  date        DateTime @default(now())
+  weightKg    Float?
+  bodyFatPct  Float?
+  chestCm     Float?
+  waistCm     Float?
+  hipCm       Float?
+  armCm       Float?
+  thighCm     Float?
+  notes       String?  @db.VarChar(500)
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, date])
+}

@@ -1,0 +1,15 @@
+export const EQUIPMENT_LABELS = {
+  'barbell': '杠铃',
+  'dumbbell': '哑铃',
+  'body only': '自重',
+  'cable': '绳索',
+  'machine': '器械',
+  'bands': '弹力带',
+  'kettlebells': '壶铃',
+  'foam roll': '泡沫轴',
+  'medicine ball': '药球',
+  'exercise ball': '健身球',
+  'e-z curl bar': 'EZ杠',
+  'other': '其他',
+  'unknown': '未知',
+};
