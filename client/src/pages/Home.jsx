@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore.js';
-import { useWorkoutStore, loadDraft } from '../stores/workoutStore.js';
+import { useWorkoutStore, loadDraft, clearDraft } from '../stores/workoutStore.js';
 import apiClient from '../api/client.js';
 
 export default function Home() {
@@ -29,7 +29,7 @@ export default function Home() {
   }
 
   function handleDiscardDraft() {
-    localStorage.removeItem(`${STORAGE_KEY_PREFIX}${user.id}`);
+    clearDraft(user.id);
     setDraft(null);
   }
 

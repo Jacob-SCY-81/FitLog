@@ -57,7 +57,8 @@ export default function ExerciseDetail() {
         </Link>
         <div className="flex-1">
           <h1 className="text-lg font-bold text-white truncate">
-            {exercise.isOfficial ? tExerciseName(exercise.id) : exercise.name}
+            {exercise.isOfficial ? tExerciseName(exercise.id, exercise.name) : exercise.name}
+
           </h1>
           {exercise.isOfficial && (
             <p className="text-xs text-gray-500">{exercise.name}</p>

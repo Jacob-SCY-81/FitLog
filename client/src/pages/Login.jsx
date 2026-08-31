@@ -64,15 +64,16 @@ export default function Login() {
               <div>
                 <label className="block text-sm text-gray-400 mb-1">邮箱</label>
                 <input
-                  type="email"
+                  type="text"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
+                  placeholder="you@example.com 或 admin@admin"
                   className="w-full px-4 py-3 bg-gray-800 rounded-lg text-white placeholder-gray-500
                              border border-gray-700 focus:border-emerald-500 focus:outline-none"
                   autoComplete="email"
                 />
+
               </div>
               {error && <p className="text-red-400 text-sm">{error}</p>}
               <button

@@ -35,7 +35,7 @@ function saveDraft(userId, data) {
   }
 }
 
-function clearDraft(userId) {
+export function clearDraft(userId) {
   localStorage.removeItem(getStorageKey(userId));
 }
 

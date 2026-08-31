@@ -5,6 +5,7 @@ export default function ExerciseAnimation({ images, className = '', alt = '', in
 
   useEffect(() => {
     if (!images || images.length < 2) return;
+    if (images[0] && images[0].endsWith('.gif')) return; // Native animation
     const timer = setInterval(() => setShowSecond(prev => !prev), intervalMs);
     return () => clearInterval(timer);
   }, [images, intervalMs]);

@@ -43,6 +43,10 @@ app.use('/media/exercises', express.static(path.join(__dirname, '..', '..', 'dat
   maxAge: '30d',
   immutable: true,
 }));
+app.use('/media/exercises-dataset', express.static(path.join(__dirname, '..', '..', 'data', 'exercises-media'), {
+  maxAge: '30d',
+  immutable: true,
+}));
 
 // --- Routes ---
 app.use('/api/v1/auth', authRoutes);

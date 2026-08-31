@@ -15,10 +15,11 @@ export function tLevel(key) {
   return LEVEL_LABELS[key] || key || '';
 }
 
-export function tExerciseName(id) {
-  if (!id) return '';
-  return EXERCISE_NAME_MAP[id] || id;
+export function tExerciseName(id, fallbackName) {
+  if (!id) return fallbackName || '';
+  return EXERCISE_NAME_MAP[id] || fallbackName || id;
 }
+
 
 export function tMechanic(key) {
   const map = { compound: '复合动作', isolation: '孤立动作' };

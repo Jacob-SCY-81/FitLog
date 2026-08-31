@@ -167,16 +167,7 @@ export default function ExerciseList() {
               >
                 {/* Thumbnail */}
                 <div className="aspect-[4/3] bg-gray-800 relative">
-                  {ex.isOfficial ? (
-                    <ExerciseAnimation
-                      images={[
-                        `/media/exercises/${ex.id}/0.jpg`,
-                        `/media/exercises/${ex.id}/1.jpg`,
-                      ]}
-                      alt={ex.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : ex.mediaUrl ? (
+                  {ex.mediaUrl ? (
                     <img
                       src={ex.mediaUrl}
                       alt={ex.name}
@@ -203,7 +194,8 @@ export default function ExerciseList() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-medium text-white truncate">
-                        {ex.isOfficial ? tExerciseName(ex.id) : ex.name}
+                        {ex.isOfficial ? tExerciseName(ex.id, ex.name) : ex.name}
+
                       </h3>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {MUSCLE_LABELS[ex.targetMuscle] || ex.targetMuscle}

@@ -107,7 +107,7 @@ export async function getExercise(id, userId) {
         category: jsonEx.category || null,
         primaryMuscles: jsonEx.primaryMuscles || [],
         secondaryMuscles: jsonEx.secondaryMuscles || [],
-        images: (jsonEx.images || []).map(img => `/media/exercises/${img}`),
+        images: jsonEx.images || [],
       };
     }
   }
