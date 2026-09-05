@@ -28,6 +28,15 @@ export async function createTemplate(req, res, next) {
   }
 }
 
+export async function updateTemplate(req, res, next) {
+  try {
+    const template = await templateService.updateTemplate(req.params.id, req.validatedBody, req.user.id);
+    success(res, template);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function deleteTemplate(req, res, next) {
   try {
     await templateService.deleteTemplate(req.params.id, req.user.id);

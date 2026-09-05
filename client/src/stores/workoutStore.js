@@ -89,6 +89,36 @@ export const useWorkoutStore = create((set, get) => ({
     return false;
   },
 
+  loadTemplateDraft: (workoutData, userId) => {
+    const state = get();
+    const newExercises = (workoutData.exercises || []).map((ex, idx) => ({
+      exerciseId: ex.exerciseId,
+      exerciseName: ex.exerciseName,
+      targetMuscle: ex.targetMuscle,
+      sortOrder: idx + 1,
+      sets: (ex.sets || []).map((s, sIdx) => ({
+        setIndex: sIdx + 1,
+        setType: s.setType || 'standard',
+        weight: s.weight !== undefined && s.weight !== null ? s.weight : '',
+        reps: s.reps !== undefined && s.reps !== null ? s.reps : '',
+        rpe: null,
+        isCompleted: false,
+        completedAt: null,
+        actualRestTimeSec: 0,
+      })),
+    }));
+    const newState = {
+      ...state,
+      exercises: newExercises,
+      notes: workoutData.notes || '',
+      startTime: Date.now(),
+      draftLoaded: true,
+      draftTime: Date.now(),
+    };
+    set(newState);
+    saveDraft(userId, newState);
+  },
+
   addExercise: (exercise, userId) => {
     const state = get();
     const newExercises = [...state.exercises, {

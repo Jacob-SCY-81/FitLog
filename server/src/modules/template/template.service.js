@@ -104,6 +104,91 @@ export async function createTemplate({ name, notes, exercises }, userId) {
 }
 
 /**
+ * Update an existing workout template.
+ */
+export async function updateTemplate(id, data, userId) {
+  const existing = await prisma.workoutTemplate.findUnique({
+    where: { id },
+  });
+
+  if (!existing) {
+    const err = new Error('Template not found.');
+    err.statusCode = 404;
+    err.errorCode = 'NOT_FOUND';
+    throw err;
+  }
+  if (existing.userId !== userId) {
+    const err = new Error('Forbidden.');
+    err.statusCode = 403;
+    err.errorCode = 'FORBIDDEN';
+    throw err;
+  }
+
+  const { name, notes, exercises } = data;
+
+  // Validate exercises if provided
+  if (exercises) {
+    const exerciseIds = [...new Set(exercises.map(e => e.exerciseId))];
+    const validExercises = await prisma.exercise.findMany({
+      where: {
+        id: { in: exerciseIds },
+        deletedAt: null,
+        OR: [{ isOfficial: true }, { createdById: userId }],
+      },
+      select: { id: true },
+    });
+    const validIds = new Set(validExercises.map(e => e.id));
+    const invalidIds = exerciseIds.filter(eid => !validIds.has(eid));
+    if (invalidIds.length > 0) {
+      const err = new Error(`Invalid exercise IDs: ${invalidIds.join(', ')}`);
+      err.statusCode = 403;
+      err.errorCode = 'INVALID_EXERCISE_IDS';
+      throw err;
+    }
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    if (exercises) {
+      await tx.workoutTemplateExercise.deleteMany({
+        where: { templateId: id },
+      });
+      await tx.workoutTemplateExercise.createMany({
+        data: exercises.map(ex => ({
+          templateId: id,
+          exerciseId: ex.exerciseId,
+          sortOrder: ex.sortOrder,
+          targetSets: ex.targetSets,
+          targetReps: ex.targetReps,
+          targetWeight: ex.targetWeight,
+          notes: ex.notes || null,
+        })),
+      });
+    }
+
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (notes !== undefined) updateData.notes = notes || null;
+
+    const template = await tx.workoutTemplate.update({
+      where: { id },
+      data: updateData,
+      include: {
+        exercises: {
+          include: {
+            exercise: { select: { id: true, name: true, targetMuscle: true, equipment: true } },
+          },
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+    });
+
+    return template;
+  });
+
+  return updated;
+}
+
+/**
  * Delete a template.
  */
 export async function deleteTemplate(id, userId) {

@@ -16,6 +16,8 @@ export default function Templates() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [editLoading, setEditLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -48,32 +50,24 @@ export default function Templates() {
     try {
       const { data } = await apiClient.get(`/templates/${templateId}/workout`);
       const workoutData = data.data;
-      // Pre-fill the workout store with template data
       const store = useWorkoutStore.getState();
       store.clearDraft(user.id);
-      // Set exercises from template
-      workoutData.exercises.forEach(ex => {
-        store.addExercise({
-          id: ex.exerciseId,
-          name: ex.exerciseName,
-          targetMuscle: ex.targetMuscle,
-        }, user.id);
-        // Override default set with template sets
-        const state = useWorkoutStore.getState();
-        const lastEx = state.exercises[state.exercises.length - 1];
-        if (lastEx && ex.sets.length > 1) {
-          // Remove default set and add template sets
-          for (let i = 1; i < ex.sets.length; i++) {
-            store.addSet(lastEx.sortOrder, user.id);
-          }
-        }
-      });
-      if (workoutData.notes) {
-        store.setNotes(workoutData.notes, user.id);
-      }
+      store.loadTemplateDraft(workoutData, user.id);
       navigate('/workouts/new');
     } catch (err) {
       alert(err.response?.data?.message || '加载模板失败');
+    }
+  }
+
+  async function handleOpenEdit(templateId) {
+    setEditLoading(true);
+    try {
+      const { data } = await apiClient.get(`/templates/${templateId}`);
+      setEditTarget(data.data);
+    } catch (err) {
+      alert(err.response?.data?.message || '获取模板详情失败');
+    } finally {
+      setEditLoading(false);
     }
   }
 
@@ -88,7 +82,7 @@ export default function Templates() {
         <h1 className="text-xl font-bold">训练模板</h1>
         <button
           onClick={() => setShowCreate(true)}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-bold"
+          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-bold shadow-md transition-colors"
           style={{ minHeight: '44px' }}
         >
           + 新建模板
@@ -109,31 +103,39 @@ export default function Templates() {
           templates.map(t => (
             <div
               key={t.id}
-              className="bg-gray-900 rounded-xl p-4 border border-gray-800"
+              className="bg-gray-900 rounded-xl p-4 border border-gray-800 hover:border-gray-700 transition-colors"
             >
               <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h3 className="font-medium text-white">{t.name}</h3>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {t._count.exercises} 个动作
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-white text-base truncate">{t.name}</h3>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {t._count?.exercises || 0} 个动作
                     {' · '}更新于 {new Date(t.updatedAt).toLocaleDateString('zh-CN')}
                   </p>
                   {t.notes && (
-                    <p className="text-xs text-gray-500 mt-1 truncate">{t.notes}</p>
+                    <p className="text-xs text-gray-400 mt-1.5 line-clamp-2">{t.notes}</p>
                   )}
                 </div>
               </div>
-              <div className="flex gap-2 mt-3">
+              <div className="flex gap-2 mt-4">
                 <button
                   onClick={() => handleLoadTemplate(t.id)}
-                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-medium transition-colors"
+                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-semibold transition-colors shadow-sm"
                   style={{ minHeight: '44px' }}
                 >
                   开始训练
                 </button>
                 <button
+                  onClick={() => handleOpenEdit(t.id)}
+                  disabled={editLoading}
+                  className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium text-gray-200 transition-colors"
+                  style={{ minHeight: '44px' }}
+                >
+                  编辑
+                </button>
+                <button
                   onClick={() => setDeleteTarget(t.id)}
-                  className="px-4 py-2.5 bg-gray-800 hover:bg-red-900/50 rounded-lg text-sm text-gray-400 hover:text-red-300 transition-colors"
+                  className="px-4 py-2.5 bg-gray-800 hover:bg-red-900/40 rounded-lg text-sm font-medium text-gray-400 hover:text-red-300 transition-colors"
                   style={{ minHeight: '44px' }}
                 >
                   删除
@@ -144,13 +146,32 @@ export default function Templates() {
         )}
       </div>
 
-      {/* Create Template Modal */}
-      {showCreate && (
-        <CreateTemplateModal
-          onClose={() => setShowCreate(false)}
-          onCreated={(t) => {
-            setTemplates(prev => [t, ...prev]);
+      {/* Create / Edit Template Modal */}
+      {(showCreate || editTarget) && (
+        <TemplateModal
+          initialData={editTarget}
+          onClose={() => {
             setShowCreate(false);
+            setEditTarget(null);
+          }}
+          onSaved={(saved) => {
+            if (editTarget) {
+              setTemplates(prev => prev.map(t => t.id === saved.id ? {
+                ...t,
+                ...saved,
+                _count: { exercises: saved.exercises?.length ?? t._count?.exercises ?? 0 },
+              } : t));
+              setEditTarget(null);
+            } else {
+              setTemplates(prev => [
+                {
+                  ...saved,
+                  _count: { exercises: saved.exercises?.length ?? 0 },
+                },
+                ...prev,
+              ]);
+              setShowCreate(false);
+            }
           }}
         />
       )}
@@ -159,7 +180,7 @@ export default function Templates() {
       <ConfirmModal
         open={!!deleteTarget}
         title="确认删除"
-        message="删除后该模板将无法恢复。"
+        message="删除后该模板将无法恢复，关联的历史训练记录不受影响。"
         confirmText="确认删除"
         confirming={deleting}
         onConfirm={handleDelete}
@@ -169,11 +190,22 @@ export default function Templates() {
   );
 }
 
-function CreateTemplateModal({ onClose, onCreated }) {
-  const [exercises, setExercises] = useState([]);
-  const [name, setName] = useState('');
-  const [notes, setNotes] = useState('');
-  const [templateExercises, setTemplateExercises] = useState([]);
+function TemplateModal({ initialData, onClose, onSaved }) {
+  const isEdit = !!initialData?.id;
+  const [name, setName] = useState(initialData?.name || '');
+  const [notes, setNotes] = useState(initialData?.notes || '');
+  const [templateExercises, setTemplateExercises] = useState(
+    (initialData?.exercises || []).map((ex, idx) => ({
+      exerciseId: ex.exerciseId,
+      exerciseName: ex.exercise?.name || ex.exerciseName || '',
+      targetMuscle: ex.exercise?.targetMuscle || ex.targetMuscle || '',
+      sortOrder: ex.sortOrder || idx + 1,
+      targetSets: ex.targetSets || 3,
+      targetReps: ex.targetReps || 10,
+      targetWeight: ex.targetWeight || 0,
+      notes: ex.notes || '',
+    }))
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [showPicker, setShowPicker] = useState(false);
@@ -198,6 +230,7 @@ function CreateTemplateModal({ onClose, onCreated }) {
       targetSets: 3,
       targetReps: 10,
       targetWeight: 0,
+      notes: '',
     }]);
     setShowPicker(false);
   }
@@ -220,20 +253,30 @@ function CreateTemplateModal({ onClose, onCreated }) {
     }
     setSaving(true);
     setError('');
+
+    const payload = {
+      name: name.trim(),
+      notes: notes.trim() || null,
+      exercises: templateExercises.map(e => ({
+        exerciseId: e.exerciseId,
+        sortOrder: e.sortOrder,
+        targetSets: e.targetSets,
+        targetReps: e.targetReps,
+        targetWeight: e.targetWeight,
+        notes: e.notes || null,
+      })),
+    };
+
     try {
-      const { data } = await apiClient.post('/templates', {
-        name: name.trim(),
-        notes: notes.trim() || null,
-        exercises: templateExercises.map(e => ({
-          exerciseId: e.exerciseId,
-          sortOrder: e.sortOrder,
-          targetSets: e.targetSets,
-          targetReps: e.targetReps,
-          targetWeight: e.targetWeight,
-          notes: null,
-        })),
-      });
-      onCreated(data.data);
+      let data;
+      if (isEdit) {
+        const res = await apiClient.put(`/templates/${initialData.id}`, payload);
+        data = res.data;
+      } else {
+        const res = await apiClient.post('/templates', payload);
+        data = res.data;
+      }
+      onSaved(data.data);
     } catch (err) {
       setError(err.response?.data?.message || '保存失败');
     } finally {
@@ -244,11 +287,13 @@ function CreateTemplateModal({ onClose, onCreated }) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col"
          onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="absolute inset-0 bg-black/60" />
-      <div className="relative mt-auto sm:mt-16 sm:mb-auto w-full sm:max-w-md mx-auto bg-gray-900
-                      rounded-t-2xl sm:rounded-2xl max-h-[90vh] flex flex-col">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="relative mt-auto sm:mt-16 sm:mb-auto w-full sm:max-w-lg mx-auto bg-gray-900
+                      rounded-t-2xl sm:rounded-2xl max-h-[90vh] flex flex-col border border-gray-800 shadow-2xl">
         <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-          <h2 className="text-lg font-bold">新建训练模板</h2>
+          <h2 className="text-lg font-bold text-white">
+            {isEdit ? '编辑训练模板' : '新建训练模板'}
+          </h2>
           <button onClick={onClose} className="p-2 text-gray-400 hover:text-white"
             style={{ minWidth: '44px', minHeight: '44px' }}>✕</button>
         </div>
@@ -283,40 +328,44 @@ function CreateTemplateModal({ onClose, onCreated }) {
           {/* Exercises */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm text-gray-400">训练动作</label>
+              <label className="text-sm font-medium text-gray-300">训练动作</label>
               <button
+                type="button"
                 onClick={openPicker}
-                className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs text-emerald-400"
-                style={{ minHeight: '44px' }}
+                className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs font-semibold text-emerald-400"
+                style={{ minHeight: '40px' }}
               >
                 + 添加动作
               </button>
             </div>
 
             {templateExercises.length === 0 ? (
-              <p className="text-xs text-gray-600 text-center py-4">尚未添加动作</p>
+              <div className="text-xs text-gray-500 text-center py-6 border border-dashed border-gray-800 rounded-xl">
+                尚未添加动作，点击上方“+ 添加动作”开始配置
+              </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {templateExercises.map(ex => (
-                  <div key={ex.sortOrder} className="bg-gray-800 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
+                  <div key={ex.sortOrder} className="bg-gray-800/80 rounded-xl p-3.5 border border-gray-700/60">
+                    <div className="flex items-center justify-between mb-2.5">
                       <div>
-                        <p className="text-sm text-white">
-                          {ex.exerciseId ? tExerciseName(ex.exerciseId) || ex.exerciseName : ex.exerciseName}
+                        <p className="text-sm font-semibold text-white">
+                          {ex.exerciseId ? tExerciseName(ex.exerciseId, ex.exerciseName) || ex.exerciseName : ex.exerciseName}
                         </p>
-                        <p className="text-xs text-gray-500">{tMuscle(ex.targetMuscle)}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{tMuscle(ex.targetMuscle)}</p>
                       </div>
                       <button
+                        type="button"
                         onClick={() => removeFromTemplate(ex.sortOrder)}
-                        className="p-2 text-gray-500 hover:text-red-400"
-                        style={{ minWidth: '44px', minHeight: '44px' }}
+                        className="p-1.5 text-gray-400 hover:text-red-400 transition-colors"
+                        style={{ minWidth: '40px', minHeight: '40px' }}
                       >
                         ✕
                       </button>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <label className="text-[10px] text-gray-500 block">目标组数</label>
+                        <label className="text-[11px] text-gray-400 block mb-1">目标组数</label>
                         <input
                           type="number"
                           value={ex.targetSets}
@@ -326,12 +375,12 @@ function CreateTemplateModal({ onClose, onCreated }) {
                               p.sortOrder === ex.sortOrder ? { ...p, targetSets: v } : p
                             ));
                           }}
-                          className="w-full px-2 py-1 bg-gray-700 rounded text-white text-xs text-center"
+                          className="w-full px-2 py-1.5 bg-gray-700/80 rounded-lg text-white text-xs text-center border border-gray-600 focus:border-emerald-500 focus:outline-none"
                           min={1} max={20}
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-gray-500 block">目标次数</label>
+                        <label className="text-[11px] text-gray-400 block mb-1">目标次数</label>
                         <input
                           type="number"
                           value={ex.targetReps}
@@ -341,12 +390,12 @@ function CreateTemplateModal({ onClose, onCreated }) {
                               p.sortOrder === ex.sortOrder ? { ...p, targetReps: v } : p
                             ));
                           }}
-                          className="w-full px-2 py-1 bg-gray-700 rounded text-white text-xs text-center"
+                          className="w-full px-2 py-1.5 bg-gray-700/80 rounded-lg text-white text-xs text-center border border-gray-600 focus:border-emerald-500 focus:outline-none"
                           min={1} max={100}
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-gray-500 block">参考重量(kg)</label>
+                        <label className="text-[11px] text-gray-400 block mb-1">参考重量(kg)</label>
                         <input
                           type="number"
                           value={ex.targetWeight}
@@ -356,7 +405,7 @@ function CreateTemplateModal({ onClose, onCreated }) {
                               p.sortOrder === ex.sortOrder ? { ...p, targetWeight: v } : p
                             ));
                           }}
-                          className="w-full px-2 py-1 bg-gray-700 rounded text-white text-xs text-center"
+                          className="w-full px-2 py-1.5 bg-gray-700/80 rounded-lg text-white text-xs text-center border border-gray-600 focus:border-emerald-500 focus:outline-none"
                           min={0} step={0.5}
                         />
                       </div>
@@ -375,10 +424,10 @@ function CreateTemplateModal({ onClose, onCreated }) {
             onClick={handleSave}
             disabled={saving}
             className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40
-                       rounded-lg font-bold text-sm transition-colors"
+                       rounded-xl font-bold text-sm text-white transition-colors shadow-md active:scale-[0.99]"
             style={{ minHeight: '44px' }}
           >
-            {saving ? '保存中...' : '保存模板'}
+            {saving ? '保存中...' : (isEdit ? '保存修改' : '创建模板')}
           </button>
         </div>
 
@@ -410,16 +459,18 @@ function CreateTemplateModal({ onClose, onCreated }) {
                     <button
                       key={ex.id}
                       onClick={() => addToTemplate(ex)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-800/50 transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-800/50 transition-colors text-left border-b border-gray-800/50"
                       style={{ minHeight: '44px' }}
                     >
-                      <div className="flex-1">
-                        <p className="text-sm text-white">{tExerciseName(ex.id) || ex.name}</p>
-                        <p className="text-xs text-gray-500">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white font-medium truncate">
+                          {tExerciseName(ex.id, ex.name) || ex.name}
+                        </p>
+                        <p className="text-xs text-gray-400">
                           {tMuscle(ex.targetMuscle)}{ex.equipment ? ` · ${tEquipment(ex.equipment)}` : ''}
                         </p>
                       </div>
-                      <span className="text-emerald-400 text-lg">+</span>
+                      <span className="text-emerald-400 text-lg font-bold">+</span>
                     </button>
                   ))
               )}
