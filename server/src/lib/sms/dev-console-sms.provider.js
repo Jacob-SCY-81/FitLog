@@ -19,6 +19,15 @@ export class DevConsoleSmsProvider extends BaseSmsProvider {
     console.log(`[DEV SMS] ID:   ${messageId}`);
     console.log(`========================================\n`);
 
+    if (process.env.SMS_DEV_LOG_FILE) {
+      try {
+        const fs = await import('fs');
+        fs.appendFileSync(process.env.SMS_DEV_LOG_FILE, `${normalizedPhone}:${code}\n`);
+      } catch {
+        // ignore log file write error
+      }
+    }
+
     return {
       success: true,
       messageId,

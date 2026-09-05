@@ -10,6 +10,7 @@ export const useAuthStore = create((set, get) => ({
 
   setAuth: (user, accessToken) => set({ user, accessToken, isInitialized: true }),
   setAccessToken: (accessToken) => set({ accessToken }),
+  updateUser: (partial) => set((s) => ({ user: s.user ? { ...s.user, ...partial } : null })),
   logout: () => set({ user: null, accessToken: null, isInitialized: true }),
   setInitialized: (isInitialized) => set({ isInitialized }),
 
