@@ -135,9 +135,9 @@ export default function WorkoutRecorder() {
           weight: parseFloat(s.weight) || 0,
           reps: parseInt(s.reps) || 0,
           rpe: s.rpe ? parseFloat(s.rpe) : null,
-          completedAt: s.completedAt || null,
+          completedAt: s.completedAt ? new Date(s.completedAt).toISOString() : null,
           actualRestTimeSec: s.actualRestTimeSec || 0,
-          isCompleted: s.isCompleted,
+          isCompleted: !!s.isCompleted,
         })),
       }));
 
@@ -498,7 +498,8 @@ function AddExerciseModal({ onClose, onSelect }) {
       const params = { page: 1, limit: 50 };
       if (search) params.search = search;
       apiClient.get('/exercises', { params })
-        .then(({ data }) => setExercises(data.data.data))
+        .then(({ data }) => setExercises(data.data.data || []))
+        .catch(() => setExercises([]))
         .finally(() => setLoading(false));
     }, 300);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
@@ -539,7 +540,7 @@ function AddExerciseModal({ onClose, onSelect }) {
               >
                 <div className="flex-1">
                   <p className="text-sm text-white">
-                    {ex.isOfficial !== false && ex.id ? tExerciseName(ex.id) || ex.name : ex.name}
+                    {ex.isOfficial !== false && ex.id ? tExerciseName(ex.id, ex.name) || ex.name : ex.name}
                   </p>
                   <p className="text-xs text-gray-500">
                     {tMuscle(ex.targetMuscle)}{ex.equipment ? ` · ${tEquipment(ex.equipment)}` : ''}
