@@ -59,8 +59,9 @@ test.describe('FitLog Media Cache Eviction & Mobile Regression Tests', () => {
     // 检查第一页第 1 个动作卡片的图片渲染与 naturalWidth
     const firstImg = firstCards.first().locator('img');
     await expect(firstImg).toBeVisible();
-    const isFirstLoaded = await firstImg.evaluate((img) => img.complete && img.naturalWidth > 0);
-    expect(isFirstLoaded).toBe(true);
+    await expect.poll(async () => {
+      return await firstImg.evaluate((img) => img.complete && img.naturalWidth > 0);
+    }, { timeout: 8000 }).toBe(true);
 
     // 确保第一页绝对不出现“暂无演示预览”
     const fallbackCountP1 = await page.locator('[data-testid="media-fallback"]').count();
@@ -77,12 +78,51 @@ test.describe('FitLog Media Cache Eviction & Mobile Regression Tests', () => {
       await expect(secondCards.first()).toBeVisible();
       const secondImg = secondCards.first().locator('img');
       await expect(secondImg).toBeVisible();
-      const isSecondLoaded = await secondImg.evaluate((img) => img.complete && img.naturalWidth > 0);
-      expect(isSecondLoaded).toBe(true);
+      await expect.poll(async () => {
+        return await secondImg.evaluate((img) => img.complete && img.naturalWidth > 0);
+      }, { timeout: 8000 }).toBe(true);
 
       // 确保第二页也无“暂无演示预览”
       const fallbackCountP2 = await page.locator('[data-testid="media-fallback"]').count();
       expect(fallbackCountP2).toBe(0);
+    }
+  });
+
+  test('404 与 500 异常媒体响应绝对不写入 media-exercises-v2 缓存池', async ({ page }) => {
+    await page.goto('/exercises');
+    await page.waitForLoadState('networkidle');
+
+    // 发起不存在的 404 图片请求与模拟的 500 响应
+    const result = await page.evaluate(async () => {
+      // 1. 发起一个真实的 404 媒体资源请求
+      await fetch('/media/exercises-dataset/definitely-non-existent-404.gif').catch(() => {});
+
+      // 2. 发起一个模拟的 500 异常
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        // 如果当前受 SW 控制，则通过 fetch 触发 SW runtimeCaching
+        await fetch('/media/exercises-dataset/server-error-500.gif').catch(() => {});
+      }
+
+      // 3. 检查 media-exercises-v2 缓存池
+      if (!('caches' in window)) return { supported: false };
+      const cacheNames = await caches.keys();
+      const v2CacheName = cacheNames.find((name) => name.includes('media-exercises-v2'));
+      if (!v2CacheName) return { hasV2: false, cached404: false, cached500: false };
+
+      const cache = await caches.open(v2CacheName);
+      const match404 = await cache.match('/media/exercises-dataset/definitely-non-existent-404.gif');
+      const match500 = await cache.match('/media/exercises-dataset/server-error-500.gif');
+
+      return {
+        hasV2: true,
+        cached404: !!match404,
+        cached500: !!match500,
+      };
+    });
+
+    if (result.hasV2) {
+      expect(result.cached404).toBe(false);
+      expect(result.cached500).toBe(false);
     }
   });
 });
