@@ -2,6 +2,33 @@ import { readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import prisma from '../../lib/prisma.js';
+import { getRedisClient, isRedisHealthy } from '../../lib/redis/redis.client.js';
+
+const CACHE_TTL_EXERCISE_DETAIL = 3600; // 1 小时
+
+async function getFromCache(key) {
+  try {
+    const redis = getRedisClient();
+    if (redis && (await isRedisHealthy())) {
+      const cached = await redis.get(key);
+      if (cached) return JSON.parse(cached);
+    }
+  } catch (_e) {
+    // 降级忽略缓存异常
+  }
+  return null;
+}
+
+async function setToCache(key, value, ttlSec) {
+  try {
+    const redis = getRedisClient();
+    if (redis && (await isRedisHealthy())) {
+      await redis.set(key, JSON.stringify(value), 'EX', ttlSec);
+    }
+  } catch (_e) {
+    // 降级忽略缓存异常
+  }
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -78,6 +105,16 @@ export async function listExercises({ page, limit, search, muscle, equipment }, 
  * For custom exercises, we return stored basic fields plus optional notes.
  */
 export async function getExercise(id, userId) {
+  // 官方动作优先查询缓存
+  const cacheKey = `cache:exercise:detail:${id}`;
+  const cached = await getFromCache(cacheKey);
+  if (cached) {
+    // 若为官方动作，且缓存有效直接返回
+    if (cached.isOfficial) {
+      return cached;
+    }
+  }
+
   const exercise = await prisma.exercise.findUnique({ where: { id } });
   if (!exercise || exercise.deletedAt) {
     const err = new Error('Exercise not found.');
@@ -97,8 +134,9 @@ export async function getExercise(id, userId) {
   if (exercise.isOfficial) {
     await ensureExercisesLoaded();
     const jsonEx = getJsonExerciseById(exercise.id);
+    let enriched = exercise;
     if (jsonEx) {
-      return {
+      enriched = {
         ...exercise,
         instructions: jsonEx.instructions || [],
         level: jsonEx.level || null,
@@ -110,6 +148,8 @@ export async function getExercise(id, userId) {
         images: jsonEx.images || [],
       };
     }
+    await setToCache(cacheKey, enriched, CACHE_TTL_EXERCISE_DETAIL);
+    return enriched;
   }
 
   return exercise;

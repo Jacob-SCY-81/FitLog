@@ -68,8 +68,15 @@ export async function createWorkout({ startTime, endTime, notes, totalVolumeKg, 
 /**
  * List user's workout history (paginated, newest first).
  */
-export async function listWorkouts({ page, limit }, userId) {
+export async function listWorkouts({ page, limit, startDate, endDate }, userId) {
   const where = { userId };
+
+  if (startDate || endDate) {
+    where.startTime = {
+      ...(startDate ? { gte: new Date(startDate) } : {}),
+      ...(endDate ? { lte: new Date(endDate) } : {}),
+    };
+  }
 
   const [data, total] = await Promise.all([
     prisma.workoutRecord.findMany({

@@ -32,5 +32,7 @@ export const updateWorkoutSchema = z.object({
 
 export const listWorkoutsSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(50).default(20),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  startDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional(),
 });
