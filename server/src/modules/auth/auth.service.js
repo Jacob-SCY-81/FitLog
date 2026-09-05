@@ -106,6 +106,15 @@ export async function loginWithCode(email, code) {
     };
   }
 
+  // 检查账号是否因连续输错被临时锁定
+  const attemptCheck = await rateLimiter.canAttempt(email);
+  if (!attemptCheck.allowed) {
+    const err = new Error(attemptCheck.error || 'Account temporarily locked due to too many failed attempts.');
+    err.statusCode = 429;
+    err.errorCode = attemptCheck.reason || 'ACCOUNT_LOCKED';
+    throw err;
+  }
+
   const stored = codeStore.get(email);
 
   if (!stored) {
@@ -124,6 +133,7 @@ export async function loginWithCode(email, code) {
   }
 
   if (stored.code !== code) {
+    await rateLimiter.recordAttempt(email, false);
     stored.attempts++;
     if (stored.attempts >= 5) {
       codeStore.delete(email);
@@ -138,7 +148,8 @@ export async function loginWithCode(email, code) {
     throw err;
   }
 
-  // Code is valid — clear it
+  // 验证通过 — 重置失败计数并清除当次验证码
+  await rateLimiter.recordAttempt(email, true);
   codeStore.delete(email);
 
   // Find or create user (auto-register)
