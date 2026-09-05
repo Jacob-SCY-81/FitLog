@@ -4,7 +4,7 @@ import apiClient from '../api/client.js';
 import { MUSCLE_LABELS } from '../constants/muscles.js';
 import { EQUIPMENT_LABELS } from '../constants/equipment.js';
 import { tExerciseName } from '../utils/i18n.js';
-import ExerciseAnimation from '../components/ExerciseAnimation.jsx';
+import ExerciseMedia from '../components/ExerciseMedia.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
 export default function ExerciseList() {
@@ -167,24 +167,13 @@ export default function ExerciseList() {
               >
                 {/* Thumbnail */}
                 <div className="aspect-[4/3] bg-gray-800 relative">
-                  {ex.mediaUrl ? (
-                    <img
-                      src={ex.mediaUrl}
-                      alt={ex.name}
-                      loading="lazy"
-                      className="w-full h-full object-cover"
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-600">
-                      <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
-                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                  )}
+                  <ExerciseMedia
+                    src={ex.mediaUrl}
+                    alt={ex.name}
+                    className="w-full h-full object-cover"
+                  />
                   {!ex.isOfficial && (
-                    <span className="absolute top-1 right-1 px-1.5 py-0.5 bg-emerald-600/80 rounded text-[10px]">
+                    <span className="absolute top-1 right-1 px-1.5 py-0.5 bg-emerald-600/80 rounded text-[10px] z-10">
                       自定义
                     </span>
                   )}
@@ -256,6 +245,7 @@ function CreateExerciseModal({ onClose, onCreated }) {
   const [name, setName] = useState('');
   const [targetMuscle, setTargetMuscle] = useState('');
   const [equipment, setEquipment] = useState('');
+  const [mediaUrl, setMediaUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -268,6 +258,7 @@ function CreateExerciseModal({ onClose, onCreated }) {
         name,
         targetMuscle,
         equipment: equipment || null,
+        mediaUrl: mediaUrl.trim() || null,
       });
       onCreated();
     } catch (err) {
@@ -282,7 +273,7 @@ function CreateExerciseModal({ onClose, onCreated }) {
          onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="absolute inset-0 bg-black/60" />
       <div className="relative w-full sm:max-w-md bg-gray-900 rounded-t-2xl sm:rounded-2xl p-6 space-y-4
-                      animate-[slideUp_0.2s_ease-out]">
+                      animate-[slideUp_0.2s_ease-out] max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-bold">新建自定义动作</h2>
         {error && <p className="text-red-400 text-sm">{error}</p>}
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -316,6 +307,26 @@ function CreateExerciseModal({ onClose, onCreated }) {
                          focus:border-emerald-500 focus:outline-none"
               placeholder="如：弹力带、哑铃、自重"
             />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">演示媒体/图片链接 (可选)</label>
+            <input
+              type="text" value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800 rounded-lg text-white text-sm border border-gray-700
+                         focus:border-emerald-500 focus:outline-none"
+              placeholder="https://... 或 /media/..."
+            />
+            {mediaUrl.trim() && (
+              <div className="mt-2 p-2 bg-gray-950 rounded-lg border border-gray-800 flex items-center gap-3">
+                <div className="w-12 h-12 rounded-md overflow-hidden bg-gray-800 shrink-0">
+                  <ExerciseMedia src={mediaUrl.trim()} className="w-full h-full object-cover" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-gray-400 truncate">媒体实时预览</p>
+                  <p className="text-[10px] text-gray-500 truncate">{mediaUrl.trim()}</p>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose}

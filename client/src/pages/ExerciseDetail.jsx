@@ -3,7 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import apiClient from '../api/client.js';
 import { tMuscle, tEquipment, tLevel, tExerciseName, tMechanic } from '../utils/i18n.js';
 import { MUSCLE_LABELS } from '../constants/muscles.js';
-import ExerciseAnimation from '../components/ExerciseAnimation.jsx';
+import ExerciseMedia from '../components/ExerciseMedia.jsx';
+import ExerciseMediaLightbox from '../components/ExerciseMediaLightbox.jsx';
 import ConfirmModal from '../components/ConfirmModal.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import ErrorMessage from '../components/ErrorMessage.jsx';
@@ -17,6 +18,8 @@ export default function ExerciseDetail() {
   const [showDelete, setShowDelete] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   useEffect(() => {
     setLoading(true);
@@ -46,7 +49,9 @@ export default function ExerciseDetail() {
   if (!exercise) return null;
 
   // Use images array from API (official exercises), or mediaUrl for custom
-  const images = exercise.images || (exercise.mediaUrl ? [exercise.mediaUrl] : []);
+  const images = exercise.images && exercise.images.length > 0
+    ? exercise.images
+    : (exercise.mediaUrl ? [exercise.mediaUrl] : []);
 
   return (
     <div className="min-h-dvh pb-16 max-w-7xl mx-auto">
@@ -87,96 +92,105 @@ export default function ExerciseDetail() {
 
       {/* Image Gallery + Info */}
       <div className="lg:flex lg:gap-6 lg:px-4 lg:py-4">
-      <div className="bg-gray-900 lg:flex-1">
-        {images.length > 0 ? (
-          <div className="aspect-[4/3] bg-gray-800 relative">
-            <ExerciseAnimation
+        <div className="bg-gray-900 lg:flex-1">
+          <div
+            className="aspect-[4/3] bg-gray-800 relative cursor-pointer"
+            onClick={() => {
+              if (images.length > 0) {
+                setLightboxIndex(0);
+                setLightboxOpen(true);
+              }
+            }}
+          >
+            <ExerciseMedia
               images={images}
               alt={exercise.name}
               className="w-full h-full object-cover"
+              showExpandBtn={images.length > 0}
+              onExpand={({ currentIndex }) => {
+                setLightboxIndex(currentIndex);
+                setLightboxOpen(true);
+              }}
             />
           </div>
-        ) : (
-          <div className="aspect-[4/3] bg-gray-800 flex items-center justify-center">
-            <div className="text-center text-gray-600">
-              <svg className="w-16 h-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <p className="mt-2 text-sm">暂无图片</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Info */}
-      <div className="px-4 py-4 space-y-4 lg:flex-1 lg:py-0">
-        {/* Basic metadata */}
-        <div className="grid grid-cols-2 gap-3">
-          <InfoCard label="目标肌群" value={tMuscle(exercise.targetMuscle)} />
-          <InfoCard label="器械" value={tEquipment(exercise.equipment)} />
-          {exercise.level && <InfoCard label="难度" value={tLevel(exercise.level)} />}
-          {exercise.mechanic && <InfoCard label="动作类型" value={tMechanic(exercise.mechanic)} />}
         </div>
 
-        {/* Secondary Muscles */}
-        {exercise.secondaryMuscles && exercise.secondaryMuscles.length > 0 && (
-          <div>
-            <h3 className="text-sm font-semibold text-gray-300 mb-2">次要肌群</h3>
-            <div className="flex flex-wrap gap-1.5">
-              {exercise.secondaryMuscles.map((m) => (
-                <span key={m} className="px-2.5 py-1 bg-gray-800 rounded-full text-xs text-gray-300">
-                  {tMuscle(m)}
-                </span>
-              ))}
+        {/* Info */}
+        <div className="px-4 py-4 space-y-4 lg:flex-1 lg:py-0">
+          {/* Basic metadata */}
+          <div className="grid grid-cols-2 gap-3">
+            <InfoCard label="目标肌群" value={tMuscle(exercise.targetMuscle)} />
+            <InfoCard label="器械" value={tEquipment(exercise.equipment)} />
+            {exercise.level && <InfoCard label="难度" value={tLevel(exercise.level)} />}
+            {exercise.mechanic && <InfoCard label="动作类型" value={tMechanic(exercise.mechanic)} />}
+          </div>
+
+          {/* Secondary Muscles */}
+          {exercise.secondaryMuscles && exercise.secondaryMuscles.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-300 mb-2">次要肌群</h3>
+              <div className="flex flex-wrap gap-1.5">
+                {exercise.secondaryMuscles.map((m) => (
+                  <span key={m} className="px-2.5 py-1 bg-gray-800 rounded-full text-xs text-gray-300">
+                    {tMuscle(m)}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Instructions */}
-        {exercise.instructions && exercise.instructions.length > 0 && (
-          <div>
-            <h3 className="text-sm font-semibold text-gray-300 mb-2">动作要领</h3>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-400">
-              {exercise.instructions.map((step, idx) => (
-                <li key={idx} className="leading-relaxed">{step}</li>
-              ))}
-            </ol>
-          </div>
-        )}
+          {/* Instructions */}
+          {exercise.instructions && exercise.instructions.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-300 mb-2">动作要领</h3>
+              <ol className="list-decimal list-inside space-y-2 text-sm text-gray-400">
+                {exercise.instructions.map((step, idx) => (
+                  <li key={idx} className="leading-relaxed">{step}</li>
+                ))}
+              </ol>
+            </div>
+          )}
 
-        {/* Notes for custom exercises */}
-        {!exercise.isOfficial && exercise.notes && (
-          <div>
-            <h3 className="text-sm font-semibold text-gray-300 mb-2">备注</h3>
-            <p className="text-sm text-gray-400">{exercise.notes}</p>
-          </div>
-        )}
+          {/* Notes for custom exercise */}
+          {exercise.notes && (
+            <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
+              <h3 className="text-sm font-semibold text-gray-300 mb-1">自定义动作备注</h3>
+              <p className="text-sm text-gray-400 whitespace-pre-wrap">{exercise.notes}</p>
+            </div>
+          )}
+        </div>
       </div>
-      </div>
 
-      {/* Edit Custom Exercise Modal */}
+      {/* Fullscreen Media Lightbox Modal */}
+      <ExerciseMediaLightbox
+        isOpen={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        title={exercise.isOfficial ? tExerciseName(exercise.id, exercise.name) : exercise.name}
+        mediaList={images}
+        initialIndex={lightboxIndex}
+      />
+
+      {/* Delete confirmation */}
+      <ConfirmModal
+        open={showDelete}
+        title="确认删除自定义动作？"
+        message={`确定要删除「${exercise.name}」吗？已记录的训练历史数据仍将保留。`}
+        confirmText={deleting ? '删除中...' : '确认删除'}
+        onConfirm={handleDelete}
+        onCancel={() => setShowDelete(false)}
+      />
+
+      {/* Edit custom exercise modal */}
       {showEdit && (
         <EditExerciseModal
           exercise={exercise}
           onClose={() => setShowEdit(false)}
           onUpdated={(updated) => {
-            setExercise(updated);
+            setExercise(prev => ({ ...prev, ...updated }));
             setShowEdit(false);
           }}
         />
       )}
-
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        open={showDelete}
-        title="确认删除"
-        message={`删除自定义动作 "${exercise.name}"？已关联的训练记录将保留，但该动作将不再可用。`}
-        confirmText="确认删除"
-        confirming={deleting}
-        onConfirm={handleDelete}
-        onCancel={() => setShowDelete(false)}
-      />
     </div>
   );
 }
@@ -186,6 +200,7 @@ function EditExerciseModal({ exercise, onClose, onUpdated }) {
   const [targetMuscle, setTargetMuscle] = useState(exercise.targetMuscle || '');
   const [equipment, setEquipment] = useState(exercise.equipment || '');
   const [notes, setNotes] = useState(exercise.notes || '');
+  const [mediaUrl, setMediaUrl] = useState(exercise.mediaUrl || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -199,6 +214,7 @@ function EditExerciseModal({ exercise, onClose, onUpdated }) {
         targetMuscle,
         equipment: equipment || null,
         notes: notes || null,
+        mediaUrl: mediaUrl.trim() || null,
       });
       onUpdated(data.data);
     } catch (err) {
@@ -213,7 +229,7 @@ function EditExerciseModal({ exercise, onClose, onUpdated }) {
          onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="absolute inset-0 bg-black/60" />
       <div className="relative w-full sm:max-w-md bg-gray-900 rounded-t-2xl sm:rounded-2xl p-6 space-y-4
-                      animate-[slideUp_0.2s_ease-out]">
+                      animate-[slideUp_0.2s_ease-out] max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-bold">编辑自定义动作</h2>
         {error && <p className="text-red-400 text-sm">{error}</p>}
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -247,6 +263,26 @@ function EditExerciseModal({ exercise, onClose, onUpdated }) {
                          focus:border-emerald-500 focus:outline-none"
               placeholder="如：弹力带、哑铃、自重"
             />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">演示媒体/图片链接 (可选)</label>
+            <input
+              type="text" value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800 rounded-lg text-white text-sm border border-gray-700
+                         focus:border-emerald-500 focus:outline-none"
+              placeholder="https://... 或 /media/..."
+            />
+            {mediaUrl.trim() && (
+              <div className="mt-2 p-2 bg-gray-950 rounded-lg border border-gray-800 flex items-center gap-3">
+                <div className="w-12 h-12 rounded-md overflow-hidden bg-gray-800 shrink-0">
+                  <ExerciseMedia src={mediaUrl.trim()} className="w-full h-full object-cover" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-gray-400 truncate">媒体实时预览</p>
+                  <p className="text-[10px] text-gray-500 truncate">{mediaUrl.trim()}</p>
+                </div>
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-sm text-gray-400 mb-1">备注说明</label>

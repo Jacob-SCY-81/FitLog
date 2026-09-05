@@ -118,14 +118,14 @@ export async function getExercise(id, userId) {
 /**
  * Create a custom exercise for the current user.
  */
-export async function createExercise({ name, targetMuscle, equipment, notes }, userId) {
+export async function createExercise({ name, targetMuscle, equipment, notes, mediaUrl }, userId) {
   const exercise = await prisma.exercise.create({
     data: {
       name,
       targetMuscle,
       equipment: equipment || null,
       notes: notes || null,
-      mediaUrl: null,
+      mediaUrl: mediaUrl || null,
       isOfficial: false,
       createdById: userId,
     },
@@ -136,7 +136,7 @@ export async function createExercise({ name, targetMuscle, equipment, notes }, u
 /**
  * Update a custom exercise. Only the creator can update. Official exercises cannot be modified.
  */
-export async function updateExercise(id, { name, targetMuscle, equipment, notes }, userId) {
+export async function updateExercise(id, { name, targetMuscle, equipment, notes, mediaUrl }, userId) {
   const exercise = await prisma.exercise.findUnique({ where: { id } });
   if (!exercise || exercise.deletedAt) {
     const err = new Error('Exercise not found.');
@@ -164,6 +164,7 @@ export async function updateExercise(id, { name, targetMuscle, equipment, notes 
       ...(targetMuscle !== undefined && { targetMuscle }),
       ...(equipment !== undefined && { equipment: equipment || null }),
       ...(notes !== undefined && { notes: notes || null }),
+      ...(mediaUrl !== undefined && { mediaUrl: mediaUrl || null }),
     },
   });
 

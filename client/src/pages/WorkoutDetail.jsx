@@ -5,6 +5,7 @@ import { tExerciseName, tMuscle, tEquipment } from '../utils/i18n.js';
 import ConfirmModal from '../components/ConfirmModal.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import ErrorMessage from '../components/ErrorMessage.jsx';
+import ExerciseMedia from '../components/ExerciseMedia.jsx';
 import { formatDate, formatTime } from '../utils/format.js';
 
 const SET_TYPE_LABELS = { warmup: '热身', standard: '正式', dropset: '递减', failure: '力竭' };
@@ -110,7 +111,9 @@ export default function WorkoutDetail() {
           <div key={group.exerciseId} className="bg-gray-900 rounded-xl overflow-hidden border border-gray-800">
             <div className="px-4 py-3 bg-gray-800/50 flex items-center gap-3">
               {group.exercise.mediaUrl && (
-                <img src={group.exercise.mediaUrl} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0">
+                  <ExerciseMedia src={group.exercise.mediaUrl} className="w-full h-full object-cover" />
+                </div>
               )}
               <div>
                 <h3 className="font-medium text-white">
