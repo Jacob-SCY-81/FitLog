@@ -14,3 +14,12 @@ export const loginSchema = z.object({
   ),
   code: z.string().length(6, 'Verification code must be 6 digits'),
 });
+
+export const sendPhoneCodeSchema = z.object({
+  phone: z.string().min(1, 'Phone is required'),
+});
+
+export const phoneLoginSchema = z.object({
+  phone: z.string().min(1, 'Phone is required'),
+  code: z.string().length(6, 'Verification code must be 6 digits'),
+});

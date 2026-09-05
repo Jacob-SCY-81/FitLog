@@ -18,3 +18,16 @@ export async function updateProfile(req, res, next) {
     next(err);
   }
 }
+
+export async function bindPhone(req, res, next) {
+  try {
+    const { phone, code } = req.validatedBody;
+    const profile = await userService.bindPhone(req.user.id, phone, code);
+    success(res, {
+      message: '手机号绑定成功',
+      user: profile,
+    });
+  } catch (err) {
+    next(err);
+  }
+}

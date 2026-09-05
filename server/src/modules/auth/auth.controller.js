@@ -73,3 +73,41 @@ export async function logout(req, res, next) {
     next(err);
   }
 }
+
+export async function sendPhoneCode(req, res, next) {
+  try {
+    const { phone } = req.validatedBody;
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+    const result = await authService.sendPhoneVerificationCode(phone, clientIp);
+    success(res, {
+      message: result.message,
+      cooldownSec: result.cooldownSec,
+      expiresInSec: result.expiresInSec,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function phoneLogin(req, res, next) {
+  try {
+    const { phone, code } = req.validatedBody;
+    const result = await authService.loginWithPhone(phone, code);
+
+    // Set refresh token as HttpOnly cookie
+    res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: false, // set true in production with HTTPS
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      path: '/api/v1/auth',
+    });
+
+    success(res, {
+      user: result.user,
+      accessToken: result.accessToken,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
