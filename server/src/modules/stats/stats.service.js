@@ -172,3 +172,77 @@ async function getExerciseStatsFallback(exerciseId, userId, days) {
     totalSets,
   };
 }
+
+/**
+ * Get overall training analytics for a user over the past N days.
+ */
+export async function getOverviewStats(userId, days = 30) {
+  const since = new Date();
+  since.setDate(since.getDate() - Number(days));
+
+  const workouts = await prisma.workoutRecord.findMany({
+    where: {
+      userId,
+      startTime: { gte: since },
+    },
+    include: {
+      exerciseSets: {
+        include: {
+          exercise: { select: { targetMuscle: true } },
+        },
+      },
+    },
+    orderBy: { startTime: 'asc' },
+  });
+
+  const totalWorkouts = workouts.length;
+  let totalVolumeKg = 0;
+  let totalDurationMinutes = 0;
+  let totalSets = 0;
+  let totalReps = 0;
+  const muscleSetsMap = new Map();
+  const volumeByDateMap = new Map();
+
+  workouts.forEach(w => {
+    totalVolumeKg += w.totalVolumeKg || 0;
+    if (w.endTime && w.startTime) {
+      const dur = Math.round((new Date(w.endTime) - new Date(w.startTime)) / 60000);
+      if (dur > 0) totalDurationMinutes += dur;
+    }
+
+    const dateStr = new Date(w.startTime).toISOString().split('T')[0];
+    if (!volumeByDateMap.has(dateStr)) {
+      volumeByDateMap.set(dateStr, { date: dateStr, volume: 0, sets: 0 });
+    }
+    const dateEntry = volumeByDateMap.get(dateStr);
+    dateEntry.volume += Math.round(w.totalVolumeKg || 0);
+
+    w.exerciseSets.forEach(s => {
+      totalSets++;
+      totalReps += s.reps || 0;
+      dateEntry.sets++;
+
+      const muscle = s.exercise?.targetMuscle || 'other';
+      muscleSetsMap.set(muscle, (muscleSetsMap.get(muscle) || 0) + 1);
+    });
+  });
+
+  const volumeTrend = Array.from(volumeByDateMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+
+  const muscleDistribution = Array.from(muscleSetsMap.entries()).map(([muscle, sets]) => ({
+    muscle,
+    sets,
+    percentage: totalSets > 0 ? Math.round((sets / totalSets) * 100) : 0,
+  })).sort((a, b) => b.sets - a.sets);
+
+  return {
+    days: Number(days),
+    totalWorkouts,
+    totalVolumeKg: Math.round(totalVolumeKg * 10) / 10,
+    totalDurationMinutes,
+    totalSets,
+    totalReps,
+    volumeTrend,
+    muscleDistribution,
+  };
+}

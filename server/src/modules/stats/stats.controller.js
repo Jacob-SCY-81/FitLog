@@ -21,3 +21,15 @@ export async function exerciseStats(req, res, next) {
     next(err);
   }
 }
+
+export async function overviewStats(req, res, next) {
+  try {
+    const ALLOWED_DAYS = [7, 30, 90, 180, 365];
+    const rawDays = parseInt(req.query.days) || 30;
+    const days = ALLOWED_DAYS.includes(rawDays) ? rawDays : 30;
+    const overview = await statsService.getOverviewStats(req.user.id, days);
+    success(res, overview);
+  } catch (err) {
+    next(err);
+  }
+}

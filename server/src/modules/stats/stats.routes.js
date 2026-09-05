@@ -4,6 +4,7 @@ import * as ctrl from './stats.controller.js';
 
 const router = Router();
 
+router.get('/overview', auth, ctrl.overviewStats);
 router.get('/exercises-used', auth, ctrl.exercisesUsed);
 router.get('/exercise/:id', auth, ctrl.exerciseStats);
 
