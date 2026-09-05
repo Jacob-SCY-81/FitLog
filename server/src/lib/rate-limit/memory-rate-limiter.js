@@ -147,4 +147,32 @@ export class MemoryRateLimiter extends BaseRateLimiter {
   }
 }
 
-export const rateLimiter = new MemoryRateLimiter();
+let _activeRateLimiter = new MemoryRateLimiter();
+
+/**
+ * 设置当前全局生效的限流器 (支持注入 RedisRateLimiter)
+ * @param {import('./rate-limiter.interface.js').BaseRateLimiter} limiter
+ */
+export function setRateLimiter(limiter) {
+  _activeRateLimiter = limiter;
+}
+
+/**
+ * 获取当前全局生效的限流器实例
+ * @returns {import('./rate-limiter.interface.js').BaseRateLimiter}
+ */
+export function getRateLimiter() {
+  return _activeRateLimiter;
+}
+
+/**
+ * 统一代理对象：透明转发至当前激活的限流器实例
+ */
+export const rateLimiter = {
+  canSend: (...args) => _activeRateLimiter.canSend(...args),
+  recordSend: (...args) => _activeRateLimiter.recordSend(...args),
+  checkIpLimit: (...args) => _activeRateLimiter.checkIpLimit(...args),
+  canAttempt: (...args) => _activeRateLimiter.canAttempt(...args),
+  recordAttempt: (...args) => _activeRateLimiter.recordAttempt(...args),
+  clear: (...args) => _activeRateLimiter.clear(...args),
+};

@@ -39,6 +39,11 @@ export async function storeVerificationCode(normalizedPhone, code, ttlSeconds = 
  * @returns {Promise<{ valid: boolean, error?: string, errorCode?: string }>}
  */
 export async function consumeVerificationCode(normalizedPhone, inputCode) {
+  // 若底层存储驱动支持单步原子消费 (如 RedisVerificationCodeStore)，优先委托给原子消费防范并发争抢
+  if (typeof _activeStore.consumeAtomic === 'function') {
+    return await _activeStore.consumeAtomic(normalizedPhone, inputCode, MAX_ALLOWED_ATTEMPTS);
+  }
+
   const entry = await _activeStore.get(normalizedPhone);
 
   if (!entry) {
