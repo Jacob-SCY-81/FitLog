@@ -57,60 +57,71 @@ fi
 
 # ---- 2. Backup existing deployment ----
 if [ "$SKIP_BACKUP" = false ]; then
-    echo "[2/7] Creating backup of current deployment..."
+    echo "[2/11] Creating backup of current deployment..."
     mkdir -p "$BACKUP_DIR"
     if [ -d "$DEPLOY_CLIENT/dist" ] && [ "$(ls -A "$DEPLOY_CLIENT/dist")" ]; then
         cp -r "$DEPLOY_CLIENT/dist" "$BACKUP_DIR/dist"
         echo "  Frontend backup saved to $BACKUP_DIR/dist"
     fi
 else
-    echo "[2/7] Skipping backup (--skip-backup)"
+    echo "[2/11] Skipping backup (--skip-backup)"
 fi
 
-# ---- 3. Pull latest code ----
-echo "[3/7] Pulling latest code from origin/main..."
+# ---- 3. Git Status & Pull ----
+echo "[3/11] Checking git status and pulling latest code..."
 cd "$REPO_DIR"
+git status -s
 git pull origin main
 
-# ---- 4. Build & Prepare Backend ----
+# ---- 4. Backend Dependencies & Prisma ----
 if [ "$SKIP_BUILD" = false ]; then
-    echo "[4/7] Preparing backend dependencies and database..."
+    echo "[4/11] Installing backend dependencies (npm ci)..."
     cd "$SERVER_DIR"
     npm ci --silent
 
-    echo "  Generating Prisma Client..."
+    echo "[5/11] Generating Prisma Client..."
     npx prisma generate
 
-    echo "  Deploying database migrations (safely, no db push)..."
-    # Read DATABASE_URL from production .env
-    export $(grep -v '^#' "$DEPLOY_SERVER/.env" | grep '^DATABASE_URL=' | xargs)
+    echo "[6/11] Deploying database migrations (safely, no db push)..."
+    # Load production .env securely without losing special characters in password
+    set -a
+    # shellcheck disable=SC1090
+    . "$DEPLOY_SERVER/.env"
+    set +a
     npx prisma migrate deploy
-    echo "  Backend prepared successfully"
+    echo "  Database migration up to date!"
 else
-    echo "[4/7] Skipping backend build (--skip-build)"
+    echo "[4-6/11] Skipping backend build & migration (--skip-build)"
 fi
 
 # ---- 5. Build Frontend ----
 if [ "$SKIP_BUILD" = false ]; then
-    echo "[5/7] Building frontend (Vite SPA + PWA)..."
+    echo "[7/11] Building frontend (npm run build)..."
     cd "$CLIENT_DIR"
     npm ci --silent
     npx vite build
     echo "  Frontend built successfully"
 
     # Deploy frontend dist
-    echo "  Deploying frontend artifacts..."
+    echo "[8/11] Publishing frontend artifacts to $DEPLOY_CLIENT/dist..."
     sudo rm -rf "$DEPLOY_CLIENT/dist"/*
     sudo cp -r "$CLIENT_DIR/dist"/* "$DEPLOY_CLIENT/dist/"
 else
-    echo "[5/7] Skipping frontend build (--skip-build)"
+    echo "[7-8/11] Skipping frontend build (--skip-build)"
 fi
 
 # ---- 6. Permissions & Nginx ----
-echo "[6/7] Setting permissions and reloading Nginx..."
+echo "[9/11] Setting permissions and updating systemd service..."
 sudo chown -R fitlog:fitlog "$DEPLOY_BASE" /var/log/fitlog
 sudo chmod 750 "$DEPLOY_BASE"
 sudo chmod 600 "$DEPLOY_SERVER/.env"
+
+# Install or sync systemd service unit
+if [ -f "$REPO_DIR/deploy/fitlog.service" ]; then
+    sudo cp "$REPO_DIR/deploy/fitlog.service" /etc/systemd/system/fitlog.service
+    sudo systemctl daemon-reload
+    sudo systemctl enable fitlog
+fi
 
 if [ -f "/etc/nginx/sites-enabled/fitlog" ]; then
     sudo nginx -t && sudo systemctl reload nginx
@@ -121,22 +132,17 @@ else
 fi
 
 # ---- 7. Restart Service & Health Check ----
-echo "[7/7] Restarting FitLog systemd service..."
-if [ -f "/etc/systemd/system/fitlog.service" ]; then
-    sudo systemctl daemon-reload
-    sudo systemctl restart fitlog
-    sudo systemctl status fitlog --no-pager -l
+echo "[10/11] Restarting FitLog systemd service..."
+sudo systemctl daemon-reload
+sudo systemctl restart fitlog
+sudo systemctl status fitlog --no-pager -l
 
-    echo "Verifying service readiness..."
-    sleep 3
-    if curl -s http://127.0.0.1:3000/health/ready | grep -q '"status":"ready"'; then
-        echo "SUCCESS: FitLog backend is healthy and ready!"
-    else
-        echo "WARNING: Backend did not return ready status immediately, check logs with: journalctl -u fitlog -f -n 50"
-    fi
+echo "[11/11] Performing service health check..."
+sleep 3
+if curl -s http://127.0.0.1:3000/health/ready | grep -q '"status":"ready"'; then
+    echo "SUCCESS: FitLog backend is healthy and ready!"
 else
-    echo "  NOTE: /etc/systemd/system/fitlog.service not found."
-    echo "  Install service: sudo cp $REPO_DIR/deploy/fitlog.service /etc/systemd/system/ && sudo systemctl enable --now fitlog"
+    echo "WARNING: Backend did not return ready status immediately, check logs with: journalctl -u fitlog -f -n 50"
 fi
 
 echo ""
