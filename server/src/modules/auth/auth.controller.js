@@ -1,6 +1,20 @@
 import * as authService from './auth.service.js';
 import { success, error } from '../../lib/response.js';
 
+/**
+ * 统一设置 RefreshToken HttpOnly Cookie
+ * 生产环境强制开启 Secure 标记，开发环境与测试环境允许使用普通 Cookie
+ */
+function setRefreshTokenCookie(res, token) {
+  res.cookie('refreshToken', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    path: '/api/v1/auth',
+  });
+}
+
 export async function sendCode(req, res, next) {
   try {
     const { email } = req.validatedBody;
@@ -17,14 +31,7 @@ export async function login(req, res, next) {
     const { email, code } = req.validatedBody;
     const result = await authService.loginWithCode(email, code);
 
-    // Set refresh token as HttpOnly cookie
-    res.cookie('refreshToken', result.refreshToken, {
-      httpOnly: true,
-      secure: false, // set true in production with HTTPS
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      path: '/api/v1/auth',
-    });
+    setRefreshTokenCookie(res, result.refreshToken);
 
     success(res, {
       user: result.user,
@@ -44,14 +51,8 @@ export async function refresh(req, res, next) {
 
     const result = await authService.refreshAccessToken(refreshTokenValue);
 
-    // Set new refresh token cookie (rotation)
-    res.cookie('refreshToken', result.refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-      path: '/api/v1/auth',
-    });
+    // 轮转设置新 RefreshToken
+    setRefreshTokenCookie(res, result.refreshToken);
 
     success(res, {
       user: result.user,
@@ -94,14 +95,7 @@ export async function phoneLogin(req, res, next) {
     const { phone, code } = req.validatedBody;
     const result = await authService.loginWithPhone(phone, code);
 
-    // Set refresh token as HttpOnly cookie
-    res.cookie('refreshToken', result.refreshToken, {
-      httpOnly: true,
-      secure: false, // set true in production with HTTPS
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      path: '/api/v1/auth',
-    });
+    setRefreshTokenCookie(res, result.refreshToken);
 
     success(res, {
       user: result.user,
@@ -116,14 +110,7 @@ export async function register(req, res, next) {
   try {
     const result = await authService.registerWithPhonePassword(req.validatedBody);
 
-    // Set refresh token as HttpOnly cookie
-    res.cookie('refreshToken', result.refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-      path: '/api/v1/auth',
-    });
+    setRefreshTokenCookie(res, result.refreshToken);
 
     success(res, {
       user: result.user,
@@ -138,14 +125,7 @@ export async function phonePasswordLogin(req, res, next) {
   try {
     const result = await authService.loginWithPhonePassword(req.validatedBody);
 
-    // Set refresh token as HttpOnly cookie
-    res.cookie('refreshToken', result.refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-      path: '/api/v1/auth',
-    });
+    setRefreshTokenCookie(res, result.refreshToken);
 
     success(res, {
       user: result.user,

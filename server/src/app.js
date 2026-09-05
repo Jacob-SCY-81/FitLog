@@ -18,6 +18,11 @@ import measurementRoutes from './modules/measurement/measurement.routes.js';
 
 const app = express();
 
+// --- Reverse proxy trust (for X-Forwarded-Proto and HTTPS in production) ---
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 // --- Request ID Correlation (Must be first) ---
 app.use(requestIdMiddleware);
 

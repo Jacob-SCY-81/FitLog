@@ -65,3 +65,9 @@ query
 
 # Local exercise media
 data/exercises-media/
+
+# SSL Certificates and keys
+deploy/certs/
+*.pem
+*.key
+*.crt
