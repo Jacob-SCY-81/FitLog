@@ -54,3 +54,12 @@ export async function loadTemplateForWorkout(req, res, next) {
     next(err);
   }
 }
+
+export async function duplicateTemplate(req, res, next) {
+  try {
+    const template = await templateService.duplicateTemplate(req.params.id, req.user.id);
+    success(res, template, 201);
+  } catch (err) {
+    next(err);
+  }
+}

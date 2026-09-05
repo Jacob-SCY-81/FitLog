@@ -235,3 +235,78 @@ export async function loadTemplateForWorkout(id, userId) {
     })),
   };
 }
+
+/**
+ * Duplicate an existing template.
+ */
+export async function duplicateTemplate(id, userId) {
+  const source = await prisma.workoutTemplate.findUnique({
+    where: { id },
+    include: {
+      exercises: {
+        include: {
+          exercise: {
+            select: { id: true, name: true, targetMuscle: true, equipment: true, deletedAt: true },
+          },
+        },
+        orderBy: { sortOrder: 'asc' },
+      },
+    },
+  });
+
+  if (!source) {
+    const err = new Error('Template not found.');
+    err.statusCode = 404;
+    err.errorCode = 'NOT_FOUND';
+    throw err;
+  }
+  if (source.userId !== userId) {
+    const err = new Error('Forbidden.');
+    err.statusCode = 403;
+    err.errorCode = 'FORBIDDEN';
+    throw err;
+  }
+
+  // Filter out any exercises that have been soft-deleted
+  const validExercises = source.exercises.filter(
+    e => e.exercise && e.exercise.deletedAt === null
+  );
+
+  const newName = `${source.name} (副本)`.slice(0, 100);
+
+  const duplicated = await prisma.$transaction(async (tx) => {
+    const template = await tx.workoutTemplate.create({
+      data: {
+        userId,
+        name: newName,
+        notes: source.notes || null,
+        exercises: {
+          create: validExercises.map((ex, idx) => ({
+            exerciseId: ex.exerciseId,
+            sortOrder: idx + 1,
+            targetSets: ex.targetSets,
+            targetReps: ex.targetReps,
+            targetWeight: ex.targetWeight,
+            notes: ex.notes || null,
+          })),
+        },
+      },
+      include: {
+        exercises: {
+          include: {
+            exercise: {
+              select: { id: true, name: true, targetMuscle: true, equipment: true },
+            },
+          },
+          orderBy: { sortOrder: 'asc' },
+        },
+        _count: {
+          select: { exercises: true },
+        },
+      },
+    });
+    return template;
+  });
+
+  return duplicated;
+}

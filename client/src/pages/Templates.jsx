@@ -20,6 +20,7 @@ export default function Templates() {
   const [editLoading, setEditLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState(null);
 
   const fetchTemplates = () => {
     setLoading(true);
@@ -31,6 +32,19 @@ export default function Templates() {
   };
 
   useEffect(() => { fetchTemplates(); }, []);
+
+  async function handleDuplicate(templateId) {
+    setDuplicatingId(templateId);
+    try {
+      const { data } = await apiClient.post(`/templates/${templateId}/duplicate`);
+      const newTemplate = data.data;
+      setTemplates(prev => [newTemplate, ...prev]);
+    } catch (err) {
+      alert(err.response?.data?.message || '复制模板失败');
+    } finally {
+      setDuplicatingId(null);
+    }
+  }
 
   async function handleDelete() {
     if (!deleteTarget) return;
@@ -126,16 +140,25 @@ export default function Templates() {
                   开始训练
                 </button>
                 <button
+                  onClick={() => handleDuplicate(t.id)}
+                  disabled={duplicatingId === t.id}
+                  className="px-3 py-2.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 rounded-lg text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
+                  style={{ minHeight: '44px' }}
+                  title="复制为此模板的副本"
+                >
+                  {duplicatingId === t.id ? '复制中...' : '复制'}
+                </button>
+                <button
                   onClick={() => handleOpenEdit(t.id)}
                   disabled={editLoading}
-                  className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium text-gray-200 transition-colors"
+                  className="px-3 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium text-gray-200 transition-colors"
                   style={{ minHeight: '44px' }}
                 >
                   编辑
                 </button>
                 <button
                   onClick={() => setDeleteTarget(t.id)}
-                  className="px-4 py-2.5 bg-gray-800 hover:bg-red-900/40 rounded-lg text-sm font-medium text-gray-400 hover:text-red-300 transition-colors"
+                  className="px-3 py-2.5 bg-gray-800 hover:bg-red-900/40 rounded-lg text-sm font-medium text-gray-400 hover:text-red-300 transition-colors"
                   style={{ minHeight: '44px' }}
                 >
                   删除
@@ -211,13 +234,23 @@ function TemplateModal({ initialData, onClose, onSaved }) {
   const [showPicker, setShowPicker] = useState(false);
   const [pickerLoading, setPickerLoading] = useState(false);
   const [allExercises, setAllExercises] = useState([]);
+  const [favoriteIds, setFavoriteIds] = useState(new Set());
+  const [pickerTab, setPickerTab] = useState('all'); // 'all' | 'favorites'
   const [search, setSearch] = useState('');
 
   function openPicker() {
     setShowPicker(true);
     setPickerLoading(true);
-    apiClient.get('/exercises', { params: { page: 1, limit: 100 } })
-      .then(({ data }) => setAllExercises(data.data.data || []))
+    setPickerTab('all');
+    Promise.all([
+      apiClient.get('/exercises', { params: { page: 1, limit: 100 } }),
+      apiClient.get('/favorites/ids').catch(() => ({ data: { data: [] } })),
+    ])
+      .then(([exRes, favRes]) => {
+        setAllExercises(exRes.data.data.data || []);
+        const favArray = favRes.data.data || [];
+        setFavoriteIds(new Set(favArray));
+      })
       .finally(() => setPickerLoading(false));
   }
 
@@ -439,7 +472,7 @@ function TemplateModal({ initialData, onClose, onSaved }) {
                 style={{ minWidth: '44px', minHeight: '44px' }}>← 返回</button>
               <h3 className="text-sm font-semibold flex-1">选择动作</h3>
             </div>
-            <div className="p-3">
+            <div className="p-3 pb-2 space-y-2">
               <input
                 type="search"
                 value={search}
@@ -448,32 +481,89 @@ function TemplateModal({ initialData, onClose, onSaved }) {
                 className="w-full px-3 py-2 bg-gray-800 rounded-lg text-white text-sm border border-gray-700
                            focus:border-emerald-500 focus:outline-none"
               />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPickerTab('all')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    pickerTab === 'all'
+                      ? 'bg-emerald-600 text-white font-semibold shadow-sm'
+                      : 'bg-gray-800 text-gray-400 hover:text-gray-200'
+                  }`}
+                  style={{ minHeight: '36px' }}
+                >
+                  全部动作 ({allExercises.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPickerTab('favorites')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
+                    pickerTab === 'favorites'
+                      ? 'bg-rose-600 text-white font-semibold shadow-sm'
+                      : 'bg-gray-800 text-gray-400 hover:text-gray-200'
+                  }`}
+                  style={{ minHeight: '36px' }}
+                >
+                  <span>❤️ 仅看收藏</span>
+                  <span className="text-[11px] opacity-80">({favoriteIds.size})</span>
+                </button>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto">
               {pickerLoading ? (
-                <div className="text-center py-8 text-gray-400">加载中...</div>
-              ) : (
-                allExercises
-                  .filter(ex => !search || ex.name.toLowerCase().includes(search.toLowerCase()))
-                  .map(ex => (
-                    <button
-                      key={ex.id}
-                      onClick={() => addToTemplate(ex)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-800/50 transition-colors text-left border-b border-gray-800/50"
-                      style={{ minHeight: '44px' }}
-                    >
-                      <div className="flex-1 min-w-0">
+                <div className="text-center py-8 text-gray-400">加载动作列表中...</div>
+              ) : (() => {
+                const filtered = allExercises
+                  .filter(ex => {
+                    if (pickerTab === 'favorites' && !favoriteIds.has(ex.id)) {
+                      return false;
+                    }
+                    if (search && !ex.name.toLowerCase().includes(search.toLowerCase())) {
+                      return false;
+                    }
+                    return true;
+                  });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="text-center py-10 px-4 text-gray-400 text-xs">
+                      {pickerTab === 'favorites' ? (
+                        <div>
+                          <p className="text-base mb-1">❤️</p>
+                          <p className="font-semibold text-gray-300">暂无收藏动作</p>
+                          <p className="text-gray-500 mt-1">在动作库中点击心形图标收藏，即可在此快速调用</p>
+                        </div>
+                      ) : (
+                        <p>未找到匹配动作</p>
+                      )}
+                    </div>
+                  );
+                }
+
+                return filtered.map(ex => (
+                  <button
+                    key={ex.id}
+                    onClick={() => addToTemplate(ex)}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-800/50 transition-colors text-left border-b border-gray-800/50"
+                    style={{ minHeight: '44px' }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
                         <p className="text-sm text-white font-medium truncate">
                           {tExerciseName(ex.id, ex.name) || ex.name}
                         </p>
-                        <p className="text-xs text-gray-400">
-                          {tMuscle(ex.targetMuscle)}{ex.equipment ? ` · ${tEquipment(ex.equipment)}` : ''}
-                        </p>
+                        {favoriteIds.has(ex.id) && (
+                          <span className="text-rose-400 text-xs" title="已收藏">❤️</span>
+                        )}
                       </div>
-                      <span className="text-emerald-400 text-lg font-bold">+</span>
-                    </button>
-                  ))
-              )}
+                      <p className="text-xs text-gray-400">
+                        {tMuscle(ex.targetMuscle)}{ex.equipment ? ` · ${tEquipment(ex.equipment)}` : ''}
+                      </p>
+                    </div>
+                    <span className="text-emerald-400 text-lg font-bold">+</span>
+                  </button>
+                ));
+              })()}
             </div>
           </div>
         )}

@@ -12,5 +12,6 @@ router.post('/', auth, validate(createTemplateSchema), ctrl.createTemplate);
 router.put('/:id', auth, validate(updateTemplateSchema), ctrl.updateTemplate);
 router.delete('/:id', auth, ctrl.deleteTemplate);
 router.get('/:id/workout', auth, ctrl.loadTemplateForWorkout);
+router.post('/:id/duplicate', auth, ctrl.duplicateTemplate);
 
 export default router;
