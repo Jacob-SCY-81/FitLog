@@ -27,7 +27,9 @@ if (process.env.NODE_ENV === 'production') {
 app.use(requestIdMiddleware);
 
 // --- Security headers ---
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 
 // --- Global middleware ---
 app.use(cors({

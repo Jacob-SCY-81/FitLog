@@ -43,9 +43,12 @@ export default defineConfig({
           },
           {
             urlPattern: /\/media\/(exercises|exercises-dataset)\/.*\.(jpg|jpeg|webp|png|gif|mp4|webm|svg)/,
-            handler: 'CacheFirst',
+            handler: 'StaleWhileRevalidate',
             options: {
-              cacheName: 'media-exercises',
+              cacheName: 'media-exercises-v2',
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
               expiration: { maxEntries: 200, maxAgeSeconds: 30 * 24 * 60 * 60 },
             },
           },

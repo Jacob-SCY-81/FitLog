@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 /**
  * 判断是否为视频 URL
@@ -34,6 +34,7 @@ export default function ExerciseMedia({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const imgRef = useRef(null);
 
   // 多图交替播放计时器 (非视频、且第一帧非动图时启用双帧交替)
   useEffect(() => {
@@ -55,6 +56,15 @@ export default function ExerciseMedia({
     setHasError(false);
     setCurrentIndex(0);
   }, [src, JSON.stringify(images)]);
+
+  // 移动端缓存秒读即时完成检测 (防止从 Memory/Disk Cache 加载时不触发 onLoad 事件)
+  useEffect(() => {
+    if (imgRef.current && imgRef.current.complete) {
+      if (imgRef.current.naturalWidth > 0) {
+        setIsLoaded(true);
+      }
+    }
+  }, [currentIndex, src, JSON.stringify(images)]);
 
   // 1. 无媒体资源或加载出错：优雅降级兜底 UI
   if (mediaList.length === 0 || hasError) {
@@ -114,11 +124,11 @@ export default function ExerciseMedia({
       ) : (
         /* 4. 图像 / 动图渲染 */
         <img
+          ref={imgRef}
           data-testid="media-image"
           src={currentMedia}
           alt={alt}
           loading="lazy"
-          decoding="async"
           className={`w-full h-full object-cover transition-opacity duration-300 ${
             isLoaded ? 'opacity-100' : 'opacity-0'
           }`}
