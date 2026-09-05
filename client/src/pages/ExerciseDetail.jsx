@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import apiClient from '../api/client.js';
 import { tMuscle, tEquipment, tLevel, tExerciseName, tMechanic } from '../utils/i18n.js';
+import { MUSCLE_LABELS } from '../constants/muscles.js';
 import ExerciseAnimation from '../components/ExerciseAnimation.jsx';
 import ConfirmModal from '../components/ConfirmModal.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
@@ -14,6 +15,7 @@ export default function ExerciseDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showDelete, setShowDelete] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -58,19 +60,28 @@ export default function ExerciseDetail() {
         <div className="flex-1">
           <h1 className="text-lg font-bold text-white truncate">
             {exercise.isOfficial ? tExerciseName(exercise.id, exercise.name) : exercise.name}
-
           </h1>
           {exercise.isOfficial && (
             <p className="text-xs text-gray-500">{exercise.name}</p>
           )}
         </div>
         {!exercise.isOfficial && (
-          <button
-            onClick={() => setShowDelete(true)}
-            className="px-3 py-1.5 bg-red-900/50 hover:bg-red-800 rounded-lg text-sm text-red-300"
-          >
-            删除
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowEdit(true)}
+              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm text-gray-200"
+              style={{ minHeight: '44px' }}
+            >
+              编辑
+            </button>
+            <button
+              onClick={() => setShowDelete(true)}
+              className="px-3 py-1.5 bg-red-900/50 hover:bg-red-800 rounded-lg text-sm text-red-300"
+              style={{ minHeight: '44px' }}
+            >
+              删除
+            </button>
+          </div>
         )}
       </div>
 
@@ -99,29 +110,36 @@ export default function ExerciseDetail() {
       </div>
 
       {/* Info */}
-      <div className="px-4 py-4 space-y-4 lg:flex-1 lg:px-0">
+      <div className="px-4 py-4 space-y-4 lg:flex-1 lg:py-0">
+        {/* Basic metadata */}
         <div className="grid grid-cols-2 gap-3">
           <InfoCard label="目标肌群" value={tMuscle(exercise.targetMuscle)} />
           <InfoCard label="器械" value={tEquipment(exercise.equipment)} />
-          {exercise.isOfficial && exercise.level && (
-            <InfoCard label="难度" value={tLevel(exercise.level)} />
-          )}
-          {exercise.isOfficial && exercise.mechanic && (
-            <InfoCard label="类型" value={tMechanic(exercise.mechanic)} />
-          )}
-          <InfoCard label="来源" value={exercise.isOfficial ? '官方库' : '自定义'} />
+          {exercise.level && <InfoCard label="难度" value={tLevel(exercise.level)} />}
+          {exercise.mechanic && <InfoCard label="动作类型" value={tMechanic(exercise.mechanic)} />}
         </div>
+
+        {/* Secondary Muscles */}
+        {exercise.secondaryMuscles && exercise.secondaryMuscles.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold text-gray-300 mb-2">次要肌群</h3>
+            <div className="flex flex-wrap gap-1.5">
+              {exercise.secondaryMuscles.map((m) => (
+                <span key={m} className="px-2.5 py-1 bg-gray-800 rounded-full text-xs text-gray-300">
+                  {tMuscle(m)}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Instructions */}
         {exercise.instructions && exercise.instructions.length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold text-gray-300 mb-2">动作说明</h3>
-            <ol className="space-y-2">
-              {exercise.instructions.map((step, i) => (
-                <li key={i} className="flex gap-2 text-sm text-gray-400">
-                  <span className="text-emerald-500 font-medium shrink-0">{i + 1}.</span>
-                  <span>{step}</span>
-                </li>
+            <h3 className="text-sm font-semibold text-gray-300 mb-2">动作要领</h3>
+            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-400">
+              {exercise.instructions.map((step, idx) => (
+                <li key={idx} className="leading-relaxed">{step}</li>
               ))}
             </ol>
           </div>
@@ -137,6 +155,18 @@ export default function ExerciseDetail() {
       </div>
       </div>
 
+      {/* Edit Custom Exercise Modal */}
+      {showEdit && (
+        <EditExerciseModal
+          exercise={exercise}
+          onClose={() => setShowEdit(false)}
+          onUpdated={(updated) => {
+            setExercise(updated);
+            setShowEdit(false);
+          }}
+        />
+      )}
+
       {/* Delete Confirmation Modal */}
       <ConfirmModal
         open={showDelete}
@@ -147,6 +177,98 @@ export default function ExerciseDetail() {
         onConfirm={handleDelete}
         onCancel={() => setShowDelete(false)}
       />
+    </div>
+  );
+}
+
+function EditExerciseModal({ exercise, onClose, onUpdated }) {
+  const [name, setName] = useState(exercise.name || '');
+  const [targetMuscle, setTargetMuscle] = useState(exercise.targetMuscle || '');
+  const [equipment, setEquipment] = useState(exercise.equipment || '');
+  const [notes, setNotes] = useState(exercise.notes || '');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const { data } = await apiClient.put(`/exercises/${exercise.id}`, {
+        name,
+        targetMuscle,
+        equipment: equipment || null,
+        notes: notes || null,
+      });
+      onUpdated(data.data);
+    } catch (err) {
+      setError(err.response?.data?.message || '更新失败');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="absolute inset-0 bg-black/60" />
+      <div className="relative w-full sm:max-w-md bg-gray-900 rounded-t-2xl sm:rounded-2xl p-6 space-y-4
+                      animate-[slideUp_0.2s_ease-out]">
+        <h2 className="text-lg font-bold">编辑自定义动作</h2>
+        {error && <p className="text-red-400 text-sm">{error}</p>}
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">动作名称 *</label>
+            <input
+              type="text" required value={name} onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800 rounded-lg text-white text-sm border border-gray-700
+                         focus:border-emerald-500 focus:outline-none"
+              placeholder="如：弹力带侧平举"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">目标肌群 *</label>
+            <select
+              required value={targetMuscle} onChange={(e) => setTargetMuscle(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800 rounded-lg text-white text-sm border border-gray-700
+                         focus:border-emerald-500 focus:outline-none"
+            >
+              <option value="">选择肌群</option>
+              {Object.entries(MUSCLE_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>{v} ({k})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">器械类型</label>
+            <input
+              type="text" value={equipment} onChange={(e) => setEquipment(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800 rounded-lg text-white text-sm border border-gray-700
+                         focus:border-emerald-500 focus:outline-none"
+              placeholder="如：弹力带、哑铃、自重"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">备注说明</label>
+            <textarea
+              value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+              className="w-full px-3 py-2 bg-gray-800 rounded-lg text-white text-sm border border-gray-700
+                         focus:border-emerald-500 focus:outline-none"
+              placeholder="动作细节或注意点"
+            />
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors">
+              取消
+            </button>
+            <button type="submit" disabled={loading}
+              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors">
+              {loading ? '保存中...' : '保存修改'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

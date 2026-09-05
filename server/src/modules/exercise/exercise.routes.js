@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import auth from '../../middleware/auth.js';
 import validate from '../../middleware/validate.js';
-import { createExerciseSchema, listExercisesQuerySchema } from './exercise.validator.js';
+import { createExerciseSchema, updateExerciseSchema, listExercisesQuerySchema } from './exercise.validator.js';
 import * as ctrl from './exercise.controller.js';
 
 const router = Router();
@@ -24,6 +24,7 @@ router.get('/', auth, validateQuery(listExercisesQuerySchema), ctrl.listExercise
 router.get('/options', auth, ctrl.filterOptions);
 router.get('/:id', auth, ctrl.getExercise);
 router.post('/', auth, validate(createExerciseSchema), ctrl.createExercise);
+router.put('/:id', auth, validate(updateExerciseSchema), ctrl.updateExercise);
 router.delete('/:id', auth, ctrl.deleteExercise);
 
 export default router;

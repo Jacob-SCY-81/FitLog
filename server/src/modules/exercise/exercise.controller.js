@@ -28,6 +28,15 @@ export async function createExercise(req, res, next) {
   }
 }
 
+export async function updateExercise(req, res, next) {
+  try {
+    const exercise = await exerciseService.updateExercise(req.params.id, req.validatedBody, req.user.id);
+    success(res, exercise);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function deleteExercise(req, res, next) {
   try {
     const result = await exerciseService.deleteExercise(req.params.id, req.user.id);

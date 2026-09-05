@@ -134,6 +134,43 @@ export async function createExercise({ name, targetMuscle, equipment, notes }, u
 }
 
 /**
+ * Update a custom exercise. Only the creator can update. Official exercises cannot be modified.
+ */
+export async function updateExercise(id, { name, targetMuscle, equipment, notes }, userId) {
+  const exercise = await prisma.exercise.findUnique({ where: { id } });
+  if (!exercise || exercise.deletedAt) {
+    const err = new Error('Exercise not found.');
+    err.statusCode = 404;
+    err.errorCode = 'NOT_FOUND';
+    throw err;
+  }
+  if (exercise.isOfficial) {
+    const err = new Error('Cannot modify official exercises.');
+    err.statusCode = 400;
+    err.errorCode = 'CANNOT_MODIFY_OFFICIAL';
+    throw err;
+  }
+  if (exercise.createdById !== userId) {
+    const err = new Error('Forbidden.');
+    err.statusCode = 403;
+    err.errorCode = 'FORBIDDEN';
+    throw err;
+  }
+
+  const updated = await prisma.exercise.update({
+    where: { id },
+    data: {
+      ...(name !== undefined && { name }),
+      ...(targetMuscle !== undefined && { targetMuscle }),
+      ...(equipment !== undefined && { equipment: equipment || null }),
+      ...(notes !== undefined && { notes: notes || null }),
+    },
+  });
+
+  return updated;
+}
+
+/**
  * Soft-delete a custom exercise. Only the owner can delete.
  * Checks if exercise has associated ExerciseSets — if so, soft-delete only (already handled by deletedAt).
  */
