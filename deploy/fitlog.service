@@ -1,0 +1,31 @@
+[Unit]
+Description=FitLog Training Tracking Backend Service
+After=network.target mysql.service redis.service
+Wants=mysql.service redis.service
+
+[Service]
+Type=simple
+User=fitlog
+Group=fitlog
+WorkingDirectory=/opt/fitlog/repo/server
+EnvironmentFile=/opt/fitlog/server/.env
+
+# 使用宿主机 Node.js 20 启动 FitLog 服务
+ExecStart=/usr/bin/node src/index.js
+
+# 自动故障重启策略
+Restart=always
+RestartSec=5
+
+# 基础文件系统保护与写入白名单
+ProtectSystem=full
+ReadWritePaths=/opt/fitlog /var/log/fitlog
+
+# 资源与句柄限制
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fitlog
+
+[Install]
+WantedBy=multi-user.target
