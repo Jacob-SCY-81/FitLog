@@ -1,5 +1,6 @@
 import { DevConsoleSmsProvider } from './dev-console-sms.provider.js';
 import { MockSmsProvider } from './mock-sms.provider.js';
+import { AliyunSmsProvider } from './aliyun-sms.provider.js';
 
 let _activeProvider = null;
 
@@ -13,6 +14,10 @@ export function getSmsProvider() {
   const mode = process.env.SMS_PROVIDER || (process.env.NODE_ENV === 'test' ? 'mock' : 'console');
 
   switch (mode) {
+    case 'aliyun':
+    case 'production':
+      _activeProvider = new AliyunSmsProvider();
+      break;
     case 'mock':
       _activeProvider = new MockSmsProvider();
       break;
