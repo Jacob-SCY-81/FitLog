@@ -9,7 +9,9 @@ datasource db {
 
 model User {
   id              String          @id @default(cuid())
-  email           String          @unique
+  phone           String?         @unique @db.VarChar(20)
+  phoneVerifiedAt DateTime?
+  email           String?         @unique @db.VarChar(100)
   nickname        String?         @db.VarChar(50)
   avatarUrl       String?         @db.VarChar(255)
   createdAt       DateTime        @default(now())

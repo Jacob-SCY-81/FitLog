@@ -259,7 +259,13 @@ export async function refreshAccessToken(tokenValue) {
     },
   });
 
+  const user = await prisma.user.findUnique({
+    where: { id: payload.sub },
+    select: { id: true, email: true, nickname: true, avatarUrl: true },
+  });
+
   return {
+    user: user || { id: payload.sub, email: payload.email },
     accessToken: newAccessToken,
     refreshToken: newRefreshTokenValue,
     refreshExpiresAt: expiresAt,

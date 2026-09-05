@@ -53,6 +53,7 @@ Thumbs.db
 *.sw?
 
 # Scratch, test files, and raw data
+scratch/
 temp_status.txt
 .playwright-cli/
 client/test-results/
@@ -60,3 +61,6 @@ client/test-results/
 /*.mjs
 exercise_ids_raw.jsonl
 query
+
+# Local exercise media
+data/exercises-media/

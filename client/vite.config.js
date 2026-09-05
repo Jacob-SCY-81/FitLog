@@ -42,7 +42,7 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: /\/media\/exercises\/.*\.(jpg|webp|png)/,
+            urlPattern: /\/media\/(exercises|exercises-dataset)\/.*\.(jpg|webp|png|gif)/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'media-exercises',

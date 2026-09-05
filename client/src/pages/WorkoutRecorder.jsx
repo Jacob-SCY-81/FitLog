@@ -27,12 +27,26 @@ export default function WorkoutRecorder() {
   // Initialize draft on mount (Home page already handles recovery dialog)
   useEffect(() => {
     if (user?.id) {
-      const hasExisting = store.initDraft(user.id);
-      // If draft was loaded, clear the "draftLoaded" banner since user already chose recover
-      if (hasExisting) {
-        // Draft already loaded into state; startTime may need to be set
-      }
+      store.initDraft(user.id);
     }
+  }, [user?.id]); // eslint-disable-line
+
+  // AC-03.3 & Data Safety: Flush draft immediately on pagehide / beforeunload / unmount
+  useEffect(() => {
+    const handleFlush = () => {
+      if (user?.id) {
+        store.flushDraft(user.id);
+      }
+    };
+    window.addEventListener('beforeunload', handleFlush);
+    window.addEventListener('pagehide', handleFlush);
+    return () => {
+      window.removeEventListener('beforeunload', handleFlush);
+      window.removeEventListener('pagehide', handleFlush);
+      if (user?.id) {
+        store.flushDraft(user.id);
+      }
+    };
   }, [user?.id]); // eslint-disable-line
 
   // Set start time when first exercise is added

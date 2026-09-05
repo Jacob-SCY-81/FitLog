@@ -20,7 +20,21 @@ const Profile = React.lazy(() => import('./pages/Profile.jsx'));
 const Measurements = React.lazy(() => import('./pages/Measurements.jsx'));
 
 export default function App() {
+  const isInitialized = useAuthStore((s) => s.isInitialized);
+  const checkAuth = useAuthStore((s) => s.checkAuth);
   const isAuthenticated = useAuthStore((s) => !!s.accessToken);
+
+  React.useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  if (!isInitialized) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center bg-gray-950 text-white">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh bg-gray-950 text-white">

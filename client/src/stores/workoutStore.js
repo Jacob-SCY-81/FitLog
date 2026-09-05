@@ -2,13 +2,27 @@ import { create } from 'zustand';
 
 const STORAGE_KEY_PREFIX = 'fitlog_draft_';
 
+// Clean up any historical undefined draft key
+if (typeof window !== 'undefined' && window.localStorage) {
+  try {
+    localStorage.removeItem('fitlog_draft_undefined');
+  } catch {
+    // ignore
+  }
+}
+
 function getStorageKey(userId) {
+  if (!userId || typeof userId !== 'string' || userId.trim() === '' || userId === 'undefined') {
+    return null;
+  }
   return `${STORAGE_KEY_PREFIX}${userId}`;
 }
 
 export function loadDraft(userId) {
+  const key = getStorageKey(userId);
+  if (!key) return null;
   try {
-    const raw = localStorage.getItem(getStorageKey(userId));
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
     const draft = JSON.parse(raw);
     // Check schema version and 24h expiry
@@ -21,6 +35,8 @@ export function loadDraft(userId) {
 }
 
 function saveDraft(userId, data) {
+  const key = getStorageKey(userId);
+  if (!key) return;
   try {
     const draft = {
       schemaVersion: 1,
@@ -29,14 +45,16 @@ function saveDraft(userId, data) {
       notes: data.notes || '',
       startTime: data.startTime || null,
     };
-    localStorage.setItem(getStorageKey(userId), JSON.stringify(draft));
+    localStorage.setItem(key, JSON.stringify(draft));
   } catch {
     // localStorage full or unavailable
   }
 }
 
 export function clearDraft(userId) {
-  localStorage.removeItem(getStorageKey(userId));
+  const key = getStorageKey(userId);
+  if (!key) return;
+  localStorage.removeItem(key);
 }
 
 export const useWorkoutStore = create((set, get) => ({
@@ -45,6 +63,16 @@ export const useWorkoutStore = create((set, get) => ({
   startTime: null,
   draftLoaded: false,
   draftTime: null,
+  _saveTimer: null,
+
+  flushDraft: (userId) => {
+    const state = get();
+    if (state._saveTimer) {
+      clearTimeout(state._saveTimer);
+      set({ _saveTimer: null });
+    }
+    saveDraft(userId, state);
+  },
 
   initDraft: (userId) => {
     const draft = loadDraft(userId);

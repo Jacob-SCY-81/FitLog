@@ -53,7 +53,10 @@ export async function refresh(req, res, next) {
       path: '/api/v1/auth',
     });
 
-    success(res, { accessToken: result.accessToken });
+    success(res, {
+      user: result.user,
+      accessToken: result.accessToken,
+    });
   } catch (err) {
     next(err);
   }
