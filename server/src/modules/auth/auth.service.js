@@ -333,16 +333,149 @@ export async function sendPhoneVerificationCode(phone, clientIp) {
 }
 
 /**
- * 手机号验证码登录 / 自动注册
- * @param {string} phone 原始手机号
- * @param {string} code 6 位验证码
+ * 手机号 + 密码注册 (全新主认证流程)
+ * @param {object} param0
+ * @param {string} param0.phone 手机号
+ * @param {string} param0.password 密码 (至少8位且含字母和数字)
  * @returns {Promise<{ user: object, accessToken: string, refreshToken: string, refreshExpiresAt: Date }>}
  */
-export async function loginWithPhone(phone, code) {
+export async function registerWithPhonePassword({ phone, password }) {
   // 1. 规范化手机号
   const normalizedPhone = normalizePhone(phone);
 
-  // 2. 检查账户是否因连续 5 次错误处于锁定状态 (锁定 15 分钟)
+  // 2. 检查手机号是否已被占用
+  const existingUser = await prisma.user.findUnique({
+    where: { phone: normalizedPhone },
+  });
+  if (existingUser) {
+    const err = new Error('该手机号已被注册');
+    err.statusCode = 409;
+    err.errorCode = 'PHONE_ALREADY_REGISTERED';
+    throw err;
+  }
+
+  // 3. 安全加盐哈希密码 (bcryptjs)
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  // 4. 创建新用户 (phoneVerifiedAt 保持 null，不设默认密码，不使用后四位)
+  const user = await prisma.user.create({
+    data: {
+      phone: normalizedPhone,
+      passwordHash,
+      phoneVerifiedAt: null,
+      nickname: '健身健儿',
+      email: null,
+    },
+  });
+
+  // 5. 签发 Access Token 与 Refresh Token (sub 永远为 user.id)
+  const tokenPayload = { sub: user.id, phone: user.phone, email: user.email };
+  const accessToken = signAccessToken(tokenPayload);
+  const refreshTokenValue = signRefreshToken(tokenPayload);
+
+  const decoded = verifyRefreshToken(refreshTokenValue);
+  const expiresAt = new Date(decoded.exp * 1000);
+
+  await prisma.refreshToken.create({
+    data: {
+      token: refreshTokenValue,
+      userId: user.id,
+      expiresAt,
+    },
+  });
+
+  // 6. 返回脱敏后的安全用户信息 (绝不包含 passwordHash)
+  return {
+    user: {
+      id: user.id,
+      phone: user.phone,
+      email: user.email,
+      nickname: user.nickname,
+      avatarUrl: user.avatarUrl,
+      phoneVerifiedAt: user.phoneVerifiedAt,
+    },
+    accessToken,
+    refreshToken: refreshTokenValue,
+    refreshExpiresAt: expiresAt,
+  };
+}
+
+/**
+ * 手机号 + 密码登录 (全新主认证流程)
+ * @param {object} param0
+ * @param {string} param0.phone 手机号
+ * @param {string} param0.password 密码
+ * @returns {Promise<{ user: object, accessToken: string, refreshToken: string, refreshExpiresAt: Date }>}
+ */
+export async function loginWithPhonePassword({ phone, password }) {
+  // 1. 规范化手机号
+  const normalizedPhone = normalizePhone(phone);
+
+  // 2. 暴力破解防御：检查是否因连续输错被临时锁定 (15分钟)
+  const attemptCheck = await rateLimiter.canAttempt(normalizedPhone);
+  if (!attemptCheck.allowed) {
+    const err = new Error(attemptCheck.error || '登录失败次数过多，账号已临时锁定，请 15 分钟后再试');
+    err.statusCode = 429;
+    err.errorCode = attemptCheck.reason || 'ACCOUNT_LOCKED';
+    throw err;
+  }
+
+  // 3. 查询用户
+  const user = await prisma.user.findUnique({
+    where: { phone: normalizedPhone },
+  });
+
+  // 4. 比对密码哈希 (用户不存在或密码不匹配均返回统一报错，防止探测账号存在性)
+  const isMatch = user && user.passwordHash ? await bcrypt.compare(password, user.passwordHash) : false;
+  if (!isMatch) {
+    await rateLimiter.recordAttempt(normalizedPhone, false);
+    const err = new Error('手机号或密码错误');
+    err.statusCode = 401;
+    err.errorCode = 'INVALID_CREDENTIALS';
+    throw err;
+  }
+
+  // 5. 校验通过，清除失败尝试计数
+  await rateLimiter.recordAttempt(normalizedPhone, true);
+
+  // 6. 签发 Access Token 与 Refresh Token (sub 永远为 user.id)
+  const tokenPayload = { sub: user.id, phone: user.phone, email: user.email };
+  const accessToken = signAccessToken(tokenPayload);
+  const refreshTokenValue = signRefreshToken(tokenPayload);
+
+  const decoded = verifyRefreshToken(refreshTokenValue);
+  const expiresAt = new Date(decoded.exp * 1000);
+
+  await prisma.refreshToken.create({
+    data: {
+      token: refreshTokenValue,
+      userId: user.id,
+      expiresAt,
+    },
+  });
+
+  // 7. 返回安全用户信息 (绝不包含 passwordHash)
+  return {
+    user: {
+      id: user.id,
+      phone: user.phone,
+      email: user.email,
+      nickname: user.nickname,
+      avatarUrl: user.avatarUrl,
+      phoneVerifiedAt: user.phoneVerifiedAt,
+    },
+    accessToken,
+    refreshToken: refreshTokenValue,
+    refreshExpiresAt: expiresAt,
+  };
+}
+
+/**
+ * 手机号验证码登录 (兼容保留接口，彻底移除后四位与自动创建密码逻辑)
+ */
+export async function loginWithPhone(phone, code) {
+  const normalizedPhone = normalizePhone(phone);
+
   const attemptCheck = await rateLimiter.canAttempt(normalizedPhone);
   if (!attemptCheck.allowed) {
     const err = new Error(attemptCheck.error || 'Account temporarily locked due to too many failed attempts.');
@@ -351,7 +484,6 @@ export async function loginWithPhone(phone, code) {
     throw err;
   }
 
-  // 3. 校验并消费验证码 (输错 5 次作废，验证成功后立即销毁)
   const verifyResult = await consumeVerificationCode(normalizedPhone, code);
   if (!verifyResult.valid) {
     await rateLimiter.recordAttempt(normalizedPhone, false);
@@ -361,37 +493,27 @@ export async function loginWithPhone(phone, code) {
     throw err;
   }
 
-  // 4. 验证通过，重置输错尝试记录
   await rateLimiter.recordAttempt(normalizedPhone, true);
 
-  // 5. 查找或创建用户 (原子保证，杜绝重复创建)
   let user = await prisma.user.findUnique({
     where: { phone: normalizedPhone },
   });
 
   if (!user) {
-    const last4 = normalizedPhone.slice(-4);
     user = await prisma.user.create({
       data: {
         phone: normalizedPhone,
-        phoneVerifiedAt: new Date(),
-        nickname: `手机用户_${last4}`,
+        phoneVerifiedAt: null,
+        nickname: '健身健儿',
         email: null,
       },
     });
-  } else if (!user.phoneVerifiedAt) {
-    user = await prisma.user.update({
-      where: { id: user.id },
-      data: { phoneVerifiedAt: new Date() },
-    });
   }
 
-  // 6. 签发 JWT (sub 永远为 User.id 唯一主锚点)
   const tokenPayload = { sub: user.id, phone: user.phone, email: user.email };
   const accessToken = signAccessToken(tokenPayload);
   const refreshTokenValue = signRefreshToken(tokenPayload);
 
-  // 解析并入库持久化 RefreshToken
   const decoded = verifyRefreshToken(refreshTokenValue);
   const expiresAt = new Date(decoded.exp * 1000);
 

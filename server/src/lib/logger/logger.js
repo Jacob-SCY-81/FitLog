@@ -3,6 +3,8 @@
  */
 const SENSITIVE_KEYS = new Set([
   'password',
+  'passwordhash',
+  'confirmpassword',
   'token',
   'refreshtoken',
   'accesstoken',
@@ -127,5 +129,6 @@ class Logger {
   }
 }
 
+export const maskSensitive = maskSensitiveData;
 export const logger = new Logger();
 export default logger;

@@ -54,6 +54,7 @@ export default function errorHandler(err, req, res, _next) {
     code: statusCode,
     message,
     error: errorCode,
+    errorCode,
     data: null,
     ...(req?.id ? { requestId: req.id } : {}),
   });

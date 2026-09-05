@@ -111,3 +111,47 @@ export async function phoneLogin(req, res, next) {
     next(err);
   }
 }
+
+export async function register(req, res, next) {
+  try {
+    const result = await authService.registerWithPhonePassword(req.validatedBody);
+
+    // Set refresh token as HttpOnly cookie
+    res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      path: '/api/v1/auth',
+    });
+
+    success(res, {
+      user: result.user,
+      accessToken: result.accessToken,
+    }, 201);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function phonePasswordLogin(req, res, next) {
+  try {
+    const result = await authService.loginWithPhonePassword(req.validatedBody);
+
+    // Set refresh token as HttpOnly cookie
+    res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      path: '/api/v1/auth',
+    });
+
+    success(res, {
+      user: result.user,
+      accessToken: result.accessToken,
+    });
+  } catch (err) {
+    next(err);
+  }
+}

@@ -11,6 +11,7 @@ model User {
   id              String          @id @default(cuid())
   phone           String?         @unique @db.VarChar(20)
   phoneVerifiedAt DateTime?
+  passwordHash    String?         @db.VarChar(255)
   email           String?         @unique @db.VarChar(100)
   nickname        String?         @db.VarChar(50)
   avatarUrl       String?         @db.VarChar(255)
