@@ -8,6 +8,7 @@ import WorkoutRecorder from './pages/WorkoutRecorder.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import BottomNav from './components/BottomNav.jsx';
 import LoadingSpinner from './components/LoadingSpinner.jsx';
+import OfflineIndicator from './components/OfflineIndicator.jsx';
 import { useAuthStore } from './stores/authStore.js';
 
 // 懒加载重型或非首屏页面
@@ -38,6 +39,7 @@ export default function App() {
 
   return (
     <div className="min-h-dvh bg-gray-950 text-white">
+      <OfflineIndicator />
       <div className="max-w-7xl mx-auto lg:flex lg:pl-56">
         <div className="flex-1 min-w-0">
           <Suspense fallback={

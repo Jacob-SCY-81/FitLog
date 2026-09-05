@@ -163,6 +163,10 @@ export default function WorkoutRecorder() {
     ex.sets.every(s => s.isCompleted)
   );
 
+  function handleAddRestSeconds(extra) {
+    setRestTimer(prev => prev ? { ...prev, seconds: prev.seconds + extra, target: prev.target + extra } : null);
+  }
+
   return (
     <div className="min-h-dvh pb-24 max-w-7xl mx-auto">
       {/* Header */}
@@ -315,7 +319,7 @@ export default function WorkoutRecorder() {
         </div>
       )}
 
-      {/* Rest Timer Overlay */}
+      {/* Rest Timer Overlay / Floating Bar */}
       {restTimer && (
         <RestTimerOverlay
           seconds={restTimer.seconds}
@@ -323,6 +327,7 @@ export default function WorkoutRecorder() {
           exerciseId={restTimer.exerciseId}
           exerciseName={restTimer.exerciseName}
           onDismiss={() => setRestTimer(null)}
+          onAddSeconds={handleAddRestSeconds}
         />
       )}
 
@@ -341,145 +346,343 @@ export default function WorkoutRecorder() {
 }
 
 function SetRow({ sortOrder, set, onChange, onComplete, onRemove, isResting, restSeconds }) {
+  const [showSteppers, setShowSteppers] = useState(false);
+
+  function adjustWeight(delta) {
+    const current = parseFloat(set.weight) || 0;
+    const next = Math.max(0, Math.round((current + delta) * 10) / 10);
+    onChange('weight', next.toString());
+  }
+
+  function adjustReps(delta) {
+    const current = parseInt(set.reps) || 0;
+    const next = Math.max(0, current + delta);
+    onChange('reps', next.toString());
+  }
+
   return (
-    <div className={`grid grid-cols-12 gap-1 items-center p-1 rounded-lg transition-colors
-      ${set.isCompleted ? 'bg-emerald-900/20' : ''}
-      ${isResting ? 'ring-1 ring-amber-500/50 bg-amber-900/10' : ''}`}>
-      {/* Set number */}
-      <div className="col-span-2 flex items-center gap-1">
-        <span className="text-xs text-gray-400 w-6 text-center">{set.setIndex}</span>
-        {isResting && (
-          <span className="text-[10px] text-amber-400 animate-pulse">{restSeconds}s</span>
-        )}
-      </div>
+    <div className={`p-1 rounded-lg transition-colors space-y-1 ${
+      set.isCompleted ? 'bg-emerald-900/20' : ''
+    } ${isResting ? 'ring-1 ring-amber-500/50 bg-amber-900/10' : ''}`}>
+      <div className="grid grid-cols-12 gap-1 items-center">
+        {/* Set number */}
+        <div className="col-span-2 flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setShowSteppers(!showSteppers)}
+            title="点击展开快捷微调"
+            className="text-xs text-gray-400 w-6 text-center hover:text-emerald-400 flex items-center justify-center font-mono"
+            style={{ minHeight: '36px' }}
+          >
+            {set.setIndex}
+          </button>
+          {isResting && (
+            <span className="text-[10px] text-amber-400 animate-pulse">{restSeconds}s</span>
+          )}
+        </div>
 
-      {/* Set type */}
-      <select
-        value={set.setType}
-        onChange={(e) => onChange('setType', e.target.value)}
-        className="col-span-2 text-[10px] bg-transparent text-gray-400 focus:outline-none"
-        style={{ minHeight: '44px' }}
-      >
-        {SET_TYPES.map(t => (
-          <option key={t.value} value={t.value} className="bg-gray-900">{t.label}</option>
-        ))}
-      </select>
-
-      {/* Weight */}
-      <div className="col-span-3">
-        <input
-          type="text"
-          inputMode="decimal"
-          value={set.weight}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (/^\d*\.?\d*$/.test(v)) onChange('weight', v);
-          }}
-          placeholder="0"
-          className="w-full px-1.5 py-2 bg-gray-800 rounded text-white text-sm text-center
-                     border border-gray-700 focus:border-emerald-500 focus:outline-none"
+        {/* Set type */}
+        <select
+          value={set.setType}
+          onChange={(e) => onChange('setType', e.target.value)}
+          className="col-span-2 text-[10px] bg-transparent text-gray-400 focus:outline-none"
           style={{ minHeight: '44px' }}
-        />
-      </div>
-
-      {/* Reps */}
-      <div className="col-span-2">
-        <input
-          type="text"
-          inputMode="numeric"
-          value={set.reps}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (/^\d*$/.test(v)) onChange('reps', v);
-          }}
-          placeholder="0"
-          className="w-full px-1.5 py-2 bg-gray-800 rounded text-white text-sm text-center
-                     border border-gray-700 focus:border-emerald-500 focus:outline-none"
-          style={{ minHeight: '44px' }}
-        />
-      </div>
-
-      {/* RPE */}
-      <div className="col-span-1">
-        <input
-          type="text"
-          inputMode="decimal"
-          value={set.rpe ?? ''}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (v === '' || /^(\d|10)(\.\d?)?$/.test(v)) {
-              onChange('rpe', v === '' ? null : v);
-            }
-          }}
-          placeholder="-"
-          className="w-full px-0.5 py-2 bg-gray-800 rounded text-white text-xs text-center
-                     border border-gray-700 focus:border-emerald-500 focus:outline-none"
-          style={{ minHeight: '44px' }}
-        />
-      </div>
-
-      {/* Complete + Remove */}
-      <div className="col-span-2 flex items-center justify-center gap-0.5">
-        <button
-          onClick={() => {
-            if (!set.isCompleted) onComplete();
-            else onChange('isCompleted', false);
-          }}
-          className="p-2 text-lg"
-          style={{ minWidth: '44px', minHeight: '44px' }}
         >
-          {set.isCompleted ? '✅' : '⬜'}
-        </button>
-        <button
-          onClick={onRemove}
-          className="p-2 text-gray-600 hover:text-red-400 text-sm"
-          style={{ minWidth: '44px', minHeight: '44px' }}
-        >
-          ✕
-        </button>
+          {SET_TYPES.map(t => (
+            <option key={t.value} value={t.value} className="bg-gray-900">{t.label}</option>
+          ))}
+        </select>
+
+        {/* Weight */}
+        <div className="col-span-3">
+          <input
+            type="text"
+            inputMode="decimal"
+            value={set.weight}
+            onFocus={() => setShowSteppers(true)}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (/^\d*\.?\d*$/.test(v)) onChange('weight', v);
+            }}
+            placeholder="0"
+            className="w-full px-1.5 py-2 bg-gray-800 rounded text-white text-sm text-center
+                       border border-gray-700 focus:border-emerald-500 focus:outline-none font-medium"
+            style={{ minHeight: '44px' }}
+          />
+        </div>
+
+        {/* Reps */}
+        <div className="col-span-2">
+          <input
+            type="text"
+            inputMode="numeric"
+            value={set.reps}
+            onFocus={() => setShowSteppers(true)}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (/^\d*$/.test(v)) onChange('reps', v);
+            }}
+            placeholder="0"
+            className="w-full px-1.5 py-2 bg-gray-800 rounded text-white text-sm text-center
+                       border border-gray-700 focus:border-emerald-500 focus:outline-none font-medium"
+            style={{ minHeight: '44px' }}
+          />
+        </div>
+
+        {/* RPE */}
+        <div className="col-span-1">
+          <input
+            type="text"
+            inputMode="decimal"
+            value={set.rpe ?? ''}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === '' || /^(\d|10)(\.\d?)?$/.test(v)) {
+                onChange('rpe', v === '' ? null : v);
+              }
+            }}
+            placeholder="-"
+            className="w-full px-0.5 py-2 bg-gray-800 rounded text-white text-xs text-center
+                       border border-gray-700 focus:border-emerald-500 focus:outline-none"
+            style={{ minHeight: '44px' }}
+          />
+        </div>
+
+        {/* Complete + Remove */}
+        <div className="col-span-2 flex items-center justify-center gap-0.5">
+          <button
+            onClick={() => {
+              if (!set.isCompleted) onComplete();
+              else onChange('isCompleted', false);
+            }}
+            className="p-2 text-lg active:scale-95 transition-transform"
+            style={{ minWidth: '44px', minHeight: '44px' }}
+          >
+            {set.isCompleted ? '✅' : '⬜'}
+          </button>
+          <button
+            onClick={onRemove}
+            className="p-2 text-gray-600 hover:text-red-400 text-sm"
+            style={{ minWidth: '44px', minHeight: '44px' }}
+          >
+            ✕
+          </button>
+        </div>
       </div>
+
+      {/* Quick Stepper Bar */}
+      {showSteppers && (
+        <div className="flex items-center justify-between px-2 py-1.5 bg-gray-800/90 rounded-lg border border-gray-700/60 animate-fadeIn">
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-gray-400 mr-0.5">重量</span>
+            <button
+              type="button"
+              onClick={() => adjustWeight(-5)}
+              className="px-1.5 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded text-[11px] font-mono"
+            >
+              -5
+            </button>
+            <button
+              type="button"
+              onClick={() => adjustWeight(-2.5)}
+              className="px-1.5 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded text-[11px] font-mono"
+            >
+              -2.5
+            </button>
+            <button
+              type="button"
+              onClick={() => adjustWeight(2.5)}
+              className="px-1.5 py-1 bg-gray-700 hover:bg-gray-600 text-emerald-400 font-semibold rounded text-[11px] font-mono"
+            >
+              +2.5
+            </button>
+            <button
+              type="button"
+              onClick={() => adjustWeight(5)}
+              className="px-1.5 py-1 bg-gray-700 hover:bg-gray-600 text-emerald-400 font-semibold rounded text-[11px] font-mono"
+            >
+              +5
+            </button>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-gray-400 mr-0.5">次数</span>
+            <button
+              type="button"
+              onClick={() => adjustReps(-1)}
+              className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded text-[11px] font-mono"
+            >
+              -1
+            </button>
+            <button
+              type="button"
+              onClick={() => adjustReps(1)}
+              className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-emerald-400 font-semibold rounded text-[11px] font-mono"
+            >
+              +1
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowSteppers(false)}
+              className="ml-1 px-1.5 py-0.5 text-[10px] text-gray-500 hover:text-gray-300"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function RestTimerOverlay({ seconds, target, exerciseId, exerciseName, onDismiss }) {
+function RestTimerOverlay({ seconds, target, exerciseId, exerciseName, onDismiss, onAddSeconds }) {
+  const [minimized, setMinimized] = useState(false);
   const progress = target > 0 ? (seconds / target) * 100 : 0;
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
+  const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+  const displayName = exerciseId ? (tExerciseName(exerciseId) || exerciseName) : exerciseName;
 
   useEffect(() => {
-    if (seconds === 0 && navigator.vibrate) {
-      navigator.vibrate([200, 100, 200, 100, 500]);
+    if (seconds === 0) {
+      if (navigator.vibrate) {
+        navigator.vibrate([200, 100, 200, 100, 500]);
+      }
+      const timer = setTimeout(() => {
+        onDismiss();
+      }, 2000);
+      return () => clearTimeout(timer);
     }
-  }, [seconds]);
+  }, [seconds, onDismiss]);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
-         onClick={onDismiss}>
-      <div className="text-center space-y-4">
-        <p className="text-sm text-gray-400">组间休息 — {exerciseId ? (tExerciseName(exerciseId) || exerciseName) : exerciseName}</p>
-        <div className="relative w-32 h-32 mx-auto">
-          <svg className="w-32 h-32 -rotate-90" viewBox="0 0 120 120">
-            <circle cx="60" cy="60" r="54" fill="none" stroke="rgb(55,65,81)" strokeWidth="8" />
-            <circle cx="60" cy="60" r="54" fill="none"
-              stroke={seconds === 0 ? 'rgb(52,211,153)' : 'rgb(251,191,36)'}
-              strokeWidth="8" strokeLinecap="round"
-              strokeDasharray={`${2 * Math.PI * 54}`}
-              strokeDashoffset={`${2 * Math.PI * 54 * (1 - progress / 100)}`}
-              className="transition-all duration-1000 ease-linear" />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className={`text-3xl font-bold tabular-nums ${seconds === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
-              {mins}:{secs.toString().padStart(2, '0')}
-            </span>
-            {seconds === 0 && <span className="text-xs text-emerald-400 mt-1">休息完成!</span>}
+  // 最小化模式（底部悬浮胶囊条）
+  if (minimized) {
+    return (
+      <div
+        data-testid="floating-rest-timer"
+        className="fixed bottom-28 sm:bottom-20 left-4 right-4 max-w-md mx-auto z-40 bg-gray-900/95
+                   border border-amber-500/50 rounded-2xl shadow-2xl p-3 backdrop-blur-md flex items-center justify-between animate-fadeIn"
+      >
+        <div
+          className="flex items-center gap-3 flex-1 cursor-pointer"
+          onClick={() => setMinimized(false)}
+          title="点击展开全屏计时器"
+        >
+          <div className="relative w-8 h-8 flex-shrink-0 flex items-center justify-center">
+            <svg className="w-8 h-8 -rotate-90" viewBox="0 0 40 40">
+              <circle cx="20" cy="20" r="16" fill="none" stroke="rgb(55,65,81)" strokeWidth="3" />
+              <circle
+                cx="20" cy="20" r="16" fill="none"
+                stroke={seconds === 0 ? 'rgb(52,211,153)' : 'rgb(251,191,36)'}
+                strokeWidth="3" strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 16}`}
+                strokeDashoffset={`${2 * Math.PI * 16 * (1 - progress / 100)}`}
+                className="transition-all duration-1000 ease-linear"
+              />
+            </svg>
+            <span className="absolute text-[10px]">⏱</span>
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className={`text-base font-bold tabular-nums ${seconds === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                {timeStr}
+              </span>
+              <span className="text-[11px] text-gray-400 truncate max-w-[100px]">
+                {seconds === 0 ? '休息完成' : displayName}
+              </span>
+            </div>
+            <p className="text-[10px] text-gray-500">点击展开全屏</p>
           </div>
         </div>
-        <button onClick={onDismiss}
-          className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm"
-          style={{ minHeight: '44px' }}>
-          关闭
-        </button>
+
+        <div className="flex items-center gap-1.5">
+          {onAddSeconds && seconds > 0 && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onAddSeconds(30); }}
+              className="px-2.5 py-1.5 bg-gray-800 hover:bg-gray-700 text-amber-300 rounded-lg text-xs font-semibold border border-amber-500/30"
+              style={{ minHeight: '36px' }}
+            >
+              +30s
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+            className="px-2.5 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-xs"
+            style={{ minHeight: '36px' }}
+          >
+            跳过
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 全屏模态模式
+  return (
+    <div
+      data-testid="full-rest-timer"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm px-4"
+      onClick={(e) => { if (e.target === e.currentTarget) setMinimized(true); }}
+    >
+      <div className="text-center space-y-5 max-w-xs w-full bg-gray-900/90 border border-gray-800 p-6 rounded-3xl shadow-2xl">
+        <div className="flex items-center justify-between text-xs text-gray-400">
+          <span>组间休息</span>
+          <button
+            type="button"
+            onClick={() => setMinimized(true)}
+            className="p-1 hover:text-white"
+            title="收起为浮条"
+            style={{ minHeight: '36px', minWidth: '36px' }}
+          >
+            🗕 最小化
+          </button>
+        </div>
+
+        <p className="text-sm font-semibold text-white truncate">{displayName}</p>
+
+        <div className="relative w-36 h-36 mx-auto">
+          <svg className="w-36 h-36 -rotate-90" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="rgb(55,65,81)" strokeWidth="8" />
+            <circle
+              cx="60" cy="60" r="52" fill="none"
+              stroke={seconds === 0 ? 'rgb(52,211,153)' : 'rgb(251,191,36)'}
+              strokeWidth="8" strokeLinecap="round"
+              strokeDasharray={`${2 * Math.PI * 52}`}
+              strokeDashoffset={`${2 * Math.PI * 52 * (1 - progress / 100)}`}
+              className="transition-all duration-1000 ease-linear"
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className={`text-4xl font-extrabold tabular-nums tracking-tight ${
+              seconds === 0 ? 'text-emerald-400' : 'text-amber-400'
+            }`}>
+              {timeStr}
+            </span>
+            {seconds === 0 && <span className="text-xs text-emerald-400 mt-1 font-bold">休息完成!</span>}
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          {onAddSeconds && seconds > 0 && (
+            <button
+              type="button"
+              onClick={() => onAddSeconds(30)}
+              className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-xl text-sm font-semibold text-amber-300 border border-amber-500/30 transition-colors"
+              style={{ minHeight: '44px' }}
+            >
+              +30 秒
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-xl text-sm font-medium text-gray-300 transition-colors"
+            style={{ minHeight: '44px' }}
+          >
+            {seconds === 0 ? '完成' : '关闭'}
+          </button>
+        </div>
       </div>
     </div>
   );
