@@ -141,12 +141,16 @@ export default function WorkoutRecorder() {
         })),
       }));
 
+      const idempotencyKey = `workout_${user?.id || 'uid'}_${store.startTime || Date.now()}`;
+
       await apiClient.post('/workouts', {
         startTime: store.startTime || new Date().toISOString(),
         endTime: new Date().toISOString(),
         notes: store.notes || null,
         totalVolumeKg,
         exercises,
+      }, {
+        headers: { 'Idempotency-Key': idempotencyKey }
       });
 
       store.clearDraft(user.id);

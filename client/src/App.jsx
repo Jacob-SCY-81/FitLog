@@ -9,6 +9,7 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 import BottomNav from './components/BottomNav.jsx';
 import LoadingSpinner from './components/LoadingSpinner.jsx';
 import OfflineIndicator from './components/OfflineIndicator.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { useAuthStore } from './stores/authStore.js';
 
 // 懒加载重型或非首屏页面
@@ -42,73 +43,75 @@ export default function App() {
       <OfflineIndicator />
       <div className="max-w-7xl mx-auto lg:flex lg:pl-56">
         <div className="flex-1 min-w-0">
-          <Suspense fallback={
-            <div className="min-h-dvh flex items-center justify-center">
-              <LoadingSpinner />
-            </div>
-          }>
-            <Routes>
-              <Route path="/login" element={
-                isAuthenticated ? <Navigate to="/" replace /> : <Login />
-              } />
-              <Route path="/" element={
-                <ProtectedRoute>
-                  <Home />
-                </ProtectedRoute>
-              } />
-              <Route path="/exercises" element={
-                <ProtectedRoute>
-                  <ExerciseList />
-                </ProtectedRoute>
-              } />
-              <Route path="/exercises/:id" element={
-                <ProtectedRoute>
-                  <ExerciseDetail />
-                </ProtectedRoute>
-              } />
-              <Route path="/workouts" element={
-                <ProtectedRoute>
-                  <WorkoutHistory />
-                </ProtectedRoute>
-              } />
-              <Route path="/workouts/new" element={
-                <ProtectedRoute>
-                  <WorkoutRecorder />
-                </ProtectedRoute>
-              } />
-              <Route path="/workouts/:id" element={
-                <ProtectedRoute>
-                  <WorkoutDetail />
-                </ProtectedRoute>
-              } />
-              <Route path="/stats" element={
-                <ProtectedRoute>
-                  <Stats />
-                </ProtectedRoute>
-              } />
-              <Route path="/calendar" element={
-                <ProtectedRoute>
-                  <CalendarView />
-                </ProtectedRoute>
-              } />
-              <Route path="/templates" element={
-                <ProtectedRoute>
-                  <Templates />
-                </ProtectedRoute>
-              } />
-              <Route path="/profile" element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              } />
-              <Route path="/measurements" element={
-                <ProtectedRoute>
-                  <Measurements />
-                </ProtectedRoute>
-              } />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={
+              <div className="min-h-dvh flex items-center justify-center">
+                <LoadingSpinner />
+              </div>
+            }>
+              <Routes>
+                <Route path="/login" element={
+                  isAuthenticated ? <Navigate to="/" replace /> : <Login />
+                } />
+                <Route path="/" element={
+                  <ProtectedRoute>
+                    <Home />
+                  </ProtectedRoute>
+                } />
+                <Route path="/exercises" element={
+                  <ProtectedRoute>
+                    <ExerciseList />
+                  </ProtectedRoute>
+                } />
+                <Route path="/exercises/:id" element={
+                  <ProtectedRoute>
+                    <ExerciseDetail />
+                  </ProtectedRoute>
+                } />
+                <Route path="/workouts" element={
+                  <ProtectedRoute>
+                    <WorkoutHistory />
+                  </ProtectedRoute>
+                } />
+                <Route path="/workouts/new" element={
+                  <ProtectedRoute>
+                    <WorkoutRecorder />
+                  </ProtectedRoute>
+                } />
+                <Route path="/workouts/:id" element={
+                  <ProtectedRoute>
+                    <WorkoutDetail />
+                  </ProtectedRoute>
+                } />
+                <Route path="/stats" element={
+                  <ProtectedRoute>
+                    <Stats />
+                  </ProtectedRoute>
+                } />
+                <Route path="/calendar" element={
+                  <ProtectedRoute>
+                    <CalendarView />
+                  </ProtectedRoute>
+                } />
+                <Route path="/templates" element={
+                  <ProtectedRoute>
+                    <Templates />
+                  </ProtectedRoute>
+                } />
+                <Route path="/profile" element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                } />
+                <Route path="/measurements" element={
+                  <ProtectedRoute>
+                    <Measurements />
+                  </ProtectedRoute>
+                } />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
+          </ErrorBoundary>
         </div>
       </div>
       <BottomNav />

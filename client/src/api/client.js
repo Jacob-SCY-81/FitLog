@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/authStore.js';
 const apiClient = axios.create({
   baseURL: '/api/v1',
   withCredentials: true,
+  timeout: 10000, // 10秒超时防止弱网无限制挂起
 });
 
 // --- Refresh queue (prevents multiple concurrent refresh calls) ---
@@ -21,13 +22,25 @@ function processQueue(error, token = null) {
   failedQueue = [];
 }
 
-// --- Response interceptor: auto-refresh on 401 ---
+// --- Response interceptor: auto-retry on network error & auto-refresh on 401 ---
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    // Only attempt refresh for 401s that aren't already auth requests
+    // 1. Auto-retry on network failure or timeout for idempotent/safe requests
+    if (
+      (!error.response || error.code === 'ECONNABORTED' || error.response?.status === 503) &&
+      originalRequest &&
+      !originalRequest._networkRetry &&
+      (originalRequest.method === 'get' || originalRequest.headers?.['Idempotency-Key'])
+    ) {
+      originalRequest._networkRetry = true;
+      await new Promise(r => setTimeout(r, 600));
+      return apiClient(originalRequest);
+    }
+
+    // 2. Only attempt refresh for 401s that aren't already auth requests
     if (error.response?.status !== 401 || originalRequest._retry) {
       return Promise.reject(error);
     }
