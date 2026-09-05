@@ -19,6 +19,15 @@ export async function createMeasurement(req, res, next) {
   }
 }
 
+export async function updateMeasurement(req, res, next) {
+  try {
+    const updated = await measurementService.updateMeasurement(req.params.id, req.validatedBody, req.user.id);
+    success(res, updated);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function deleteMeasurement(req, res, next) {
   try {
     await measurementService.deleteMeasurement(req.params.id, req.user.id);
@@ -28,13 +37,26 @@ export async function deleteMeasurement(req, res, next) {
   }
 }
 
-export async function getWeightTrend(req, res, next) {
+export async function getLatestMeasurement(req, res, next) {
+  try {
+    const latest = await measurementService.getLatestMeasurement(req.user.id);
+    success(res, latest);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getMeasurementTrend(req, res, next) {
   try {
     const days = [30, 90, 180, 365].includes(Number(req.query.days))
       ? Number(req.query.days) : 90;
-    const trend = await measurementService.getWeightTrend(req.user.id, days);
+    const allowedMetrics = ['weight', 'bodyFat', 'chest', 'waist', 'hip', 'arm', 'thigh'];
+    const metric = allowedMetrics.includes(req.query.metric) ? req.query.metric : 'weight';
+    const trend = await measurementService.getMeasurementTrend(req.user.id, metric, days);
     success(res, trend);
   } catch (err) {
     next(err);
   }
 }
+
+export const getWeightTrend = getMeasurementTrend;

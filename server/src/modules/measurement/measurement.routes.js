@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import auth from '../../middleware/auth.js';
 import validate from '../../middleware/validate.js';
-import { createMeasurementSchema, listMeasurementsSchema } from './measurement.validator.js';
+import { createMeasurementSchema, listMeasurementsSchema, updateMeasurementSchema } from './measurement.validator.js';
 import * as ctrl from './measurement.controller.js';
 
 const router = Router();
@@ -20,8 +20,10 @@ function validateQuery(schema) {
 }
 
 router.get('/', auth, validateQuery(listMeasurementsSchema), ctrl.listMeasurements);
+router.get('/latest', auth, ctrl.getLatestMeasurement);
 router.post('/', auth, validate(createMeasurementSchema), ctrl.createMeasurement);
+router.put('/:id', auth, validate(updateMeasurementSchema), ctrl.updateMeasurement);
 router.delete('/:id', auth, ctrl.deleteMeasurement);
-router.get('/trend', auth, ctrl.getWeightTrend);
+router.get('/trend', auth, ctrl.getMeasurementTrend);
 
 export default router;
