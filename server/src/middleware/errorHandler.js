@@ -1,11 +1,7 @@
 import config from '../config/index.js';
+import { captureException } from '../lib/observability/error-tracker.js';
 
 export default function errorHandler(err, req, res, _next) {
-  console.error(`[ERROR] ${err.message}`);
-  if (config.nodeEnv === 'development') {
-    console.error(err.stack);
-  }
-
   let statusCode = err.statusCode || 500;
   let errorCode = err.errorCode || 'INTERNAL_ERROR';
   let message = err.message;
@@ -40,6 +36,15 @@ export default function errorHandler(err, req, res, _next) {
     message = '请求报文格式错误 (Malformed JSON)';
   }
 
+  // 捕获严重服务异常
+  if (statusCode >= 500) {
+    captureException(err, {
+      requestId: req?.id,
+      method: req?.method,
+      path: req?.originalUrl || req?.url,
+    });
+  }
+
   // Sanitize 500 in non-development environments
   if (statusCode === 500 && config.nodeEnv === 'production') {
     message = 'Internal server error';
@@ -50,5 +55,6 @@ export default function errorHandler(err, req, res, _next) {
     message,
     error: errorCode,
     data: null,
+    ...(req?.id ? { requestId: req.id } : {}),
   });
 }

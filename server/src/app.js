@@ -3,6 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
+import requestIdMiddleware from './middleware/requestId.js';
+import healthRoutes from './modules/health/health.routes.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import exerciseRoutes from './modules/exercise/exercise.routes.js';
 import workoutRoutes from './modules/workout/workout.routes.js';
@@ -15,6 +17,9 @@ import userRoutes from './modules/user/user.routes.js';
 import measurementRoutes from './modules/measurement/measurement.routes.js';
 
 const app = express();
+
+// --- Request ID Correlation (Must be first) ---
+app.use(requestIdMiddleware);
 
 // --- Security headers ---
 app.use(helmet());
@@ -30,10 +35,9 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }
 
-// --- Health check ---
-app.get('/api/v1/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// --- Health check endpoints (root alias & API v1) ---
+app.use('/health', healthRoutes);
+app.use('/api/v1/health', healthRoutes);
 
 // --- Static media (exercise images) ---
 import path from 'path';
