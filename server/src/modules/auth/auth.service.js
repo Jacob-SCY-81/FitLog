@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
-import nodemailer from 'nodemailer';
 import prisma from '../../lib/prisma.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../lib/jwt.js';
 import config from '../../config/index.js';
@@ -12,6 +11,7 @@ import {
 } from '../../lib/verification/verification-code.service.js';
 import { rateLimiter } from '../../lib/rate-limit/memory-rate-limiter.js';
 import { getSmsProvider } from '../../lib/sms/index.js';
+import { getEmailProvider } from '../../lib/email/index.js';
 
 // --- In-memory verification code store (dev: replaces Redis/email service) ---
 const codeStore = new Map(); // email → { code, expiresAt, attempts }
@@ -35,25 +35,6 @@ function checkRateLimit(map, key, max, windowMs) {
 
 function generateCode() {
   return crypto.randomInt(100000, 999999).toString();
-}
-
-let mailTransporter = null;
-
-function getMailTransporter() {
-  if (mailTransporter) return mailTransporter;
-  if (!config.smtp.host || !config.smtp.user || !config.smtp.pass) {
-    throw new Error('SMTP is not fully configured in environment variables.');
-  }
-  mailTransporter = nodemailer.createTransport({
-    host: config.smtp.host,
-    port: config.smtp.port,
-    secure: config.smtp.secure,
-    auth: {
-      user: config.smtp.user,
-      pass: config.smtp.pass,
-    },
-  });
-  return mailTransporter;
 }
 
 export async function sendVerificationCode(email, clientIp) {
@@ -83,42 +64,17 @@ export async function sendVerificationCode(email, clientIp) {
     attempts: 0,
   });
 
-  // SMTP Real email sending
-  if (config.emailMode === 'production') {
-    try {
-      const transporter = getMailTransporter();
-      await transporter.sendMail({
-        from: config.smtp.from,
-        to: email,
-        subject: '[FitLog] 您的登录验证码',
-        text: `您的验证码是 ${code}。它将在 10 分钟后过期。如非本人操作，请忽略此邮件。`,
-        html: `
-          <div style="font-family: sans-serif; padding: 20px; color: #333;">
-            <h2 style="color: #10b981;">FitLog 训练记录</h2>
-            <p>您好，</p>
-            <p>您的登录验证码是：</p>
-            <div style="font-size: 24px; font-weight: bold; background: #f3f4f6; padding: 10px 20px; border-radius: 8px; display: inline-block; letter-spacing: 2px; color: #047857; margin: 10px 0;">
-              ${code}
-            </div>
-            <p>验证码在 10 分钟内有效。如果这不是您的操作，请忽略此邮件。</p>
-            <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-            <p style="font-size: 12px; color: #9ca3af;">本邮件为系统自动发出，请勿回复。</p>
-          </div>
-        `,
-      });
-      console.log(`[FitLog] Verification code sent to ${email} via SMTP.`);
-      return { success: true, mode: 'smtp' };
-    } catch (smtpErr) {
-      console.error('[FitLog] SMTP send failed, falling back to console:', smtpErr.message);
-    }
+  const emailProvider = getEmailProvider();
+  const sendResult = await emailProvider.sendVerificationEmail(email, code, { clientIp });
+
+  if (!sendResult.success) {
+    console.warn(`[FitLog] 邮件发送驱动告警: ${sendResult.error}`);
   }
 
-  // Dev mode: log to console
-  console.log(`\n========================================`);
-  console.log(`[DEV] Verification code for ${email}: ${code}`);
-  console.log(`========================================\n`);
-
-  return { success: true, mode: 'console' };
+  return {
+    success: true,
+    mode: config.emailMode === 'production' ? 'smtp' : 'console',
+  };
 }
 
 export async function loginWithCode(email, code) {
