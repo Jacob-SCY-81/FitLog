@@ -45,7 +45,7 @@ export default function CalendarView() {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const dayWorkouts = workoutMap.get(dateStr) || [];
     const isToday = dateStr === new Date().toISOString().split('T')[0];
-    days.push({ day: d, dateStr, workouts: dayWorkouts, isToday });
+    days.push({ day: d, dateStr, workouts: dayWorkouts, isToday, key: dateStr });
   }
 
   function goToMonth(delta) {
@@ -105,8 +105,8 @@ export default function CalendarView() {
 
         {/* Days */}
         <div className="grid grid-cols-7 gap-1">
-          {days.map(({ day, dateStr, workouts: dayWorkouts, isToday }) => {
-            if (!day) return <div key={dateStr || `empty-${Math.random()}`} className="aspect-square" />;
+          {days.map(({ day, dateStr, workouts: dayWorkouts, isToday, key }) => {
+            if (!day) return <div key={key} className="aspect-square" />;
 
             const hasWorkout = dayWorkouts.length > 0;
             const volume = dayWorkouts.reduce((s, w) => s + (w.totalVolumeKg || 0), 0);

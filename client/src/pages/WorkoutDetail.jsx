@@ -15,6 +15,7 @@ export default function WorkoutDetail() {
   const [workout, setWorkout] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -78,13 +79,22 @@ export default function WorkoutDetail() {
             {workout.endTime && ` — ${formatTime(workout.endTime)}`}
           </p>
         </div>
-        <button
-          onClick={() => setShowDelete(true)}
-          className="px-3 py-1.5 text-sm text-red-400 hover:text-red-300"
-          style={{ minHeight: '44px' }}
-        >
-          删除
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowEdit(true)}
+            className="px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg transition-colors"
+            style={{ minHeight: '44px' }}
+          >
+            编辑
+          </button>
+          <button
+            onClick={() => setShowDelete(true)}
+            className="px-3 py-1.5 text-sm text-red-400 hover:text-red-300 bg-gray-800 hover:bg-red-900/40 rounded-lg transition-colors"
+            style={{ minHeight: '44px' }}
+          >
+            删除
+          </button>
+        </div>
       </div>
 
       {/* Summary */}
@@ -159,6 +169,18 @@ export default function WorkoutDetail() {
         )}
       </div>
 
+      {/* Edit Modal */}
+      {showEdit && (
+        <EditWorkoutModal
+          workout={workout}
+          onClose={() => setShowEdit(false)}
+          onUpdated={(updated) => {
+            setWorkout(prev => ({ ...prev, ...updated }));
+            setShowEdit(false);
+          }}
+        />
+      )}
+
       {/* Delete Modal */}
       <ConfirmModal
         open={showDelete}
@@ -169,6 +191,94 @@ export default function WorkoutDetail() {
         onConfirm={handleDelete}
         onCancel={() => setShowDelete(false)}
       />
+    </div>
+  );
+}
+
+function EditWorkoutModal({ workout, onClose, onUpdated }) {
+  const [notes, setNotes] = useState(workout.notes || '');
+  const [endTime, setEndTime] = useState(
+    workout.endTime ? new Date(workout.endTime).toISOString().slice(0, 16) : ''
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setError('');
+    setSaving(true);
+    try {
+      const payload = {
+        notes: notes.trim() || null,
+        ...(endTime ? { endTime: new Date(endTime).toISOString() } : {}),
+      };
+      const { data } = await apiClient.put(`/workouts/${workout.id}`, payload);
+      onUpdated(data.data);
+    } catch (err) {
+      setError(err.response?.data?.message || '保存失败');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="relative w-full sm:max-w-md bg-gray-900 rounded-t-2xl sm:rounded-2xl p-6 space-y-4
+                      border border-gray-800 shadow-2xl animate-[slideUp_0.2s_ease-out]">
+        <div className="flex items-center justify-between border-b border-gray-800 pb-3">
+          <h2 className="text-lg font-bold text-white">编辑训练记录</h2>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-white"
+            style={{ minWidth: '40px', minHeight: '40px' }}>✕</button>
+        </div>
+
+        {error && <p className="text-red-400 text-xs">{error}</p>}
+
+        <form onSubmit={handleSave} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1">训练备注</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              placeholder="记录本次训练心得、身体状态或突破..."
+              className="w-full px-3 py-2 bg-gray-800 rounded-xl text-white text-sm border border-gray-700
+                         focus:border-emerald-500 focus:outline-none resize-none placeholder-gray-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1">结束时间（选填）</label>
+            <input
+              type="datetime-local"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800 rounded-xl text-white text-sm border border-gray-700
+                         focus:border-emerald-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-xl text-sm font-medium text-gray-300 transition-colors"
+              style={{ minHeight: '44px' }}
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-xl text-sm font-bold text-white transition-colors shadow-md"
+              style={{ minHeight: '44px' }}
+            >
+              {saving ? '保存中...' : '保存'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
